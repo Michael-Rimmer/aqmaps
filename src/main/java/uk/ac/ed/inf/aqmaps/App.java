@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 // used for graph demo
 import org.jgrapht.*;
@@ -36,58 +39,70 @@ public class App
     public static void main( String[] args ) throws IOException, InterruptedException, URISyntaxException
     {
         
-           // hamiltonian dev
-//        Graph<URI, DefaultEdge> g = new DefaultUndirectedGraph<>(DefaultEdge.class);
-//
-//        URI google = new URI("http://www.google.com");
-//        URI wikipedia = new URI("http://www.wikipedia.org");
-//        URI jgrapht = new URI("http://www.jgrapht.org");
-//
-//        // add the vertices
-//        g.addVertex(google);
-//        g.addVertex(jgrapht);
-//        g.addVertex(wikipedia);
-//        
-//
-//        // add edges to create linking structure
-//        g.addEdge(wikipedia, jgrapht);
-//        g.addEdge(google, jgrapht);
-//        g.addEdge(google, wikipedia);
-//        g.addEdge(wikipedia, google);
-//        
-////        System.out.println(g.vertexSet());
-//        
-//        NearestNeighborHeuristicTSP pathFinder = new NearestNeighborHeuristicTSP(wikipedia);
-//        var tour = pathFinder.getTour(g);
-////        var vlist = tour.getVertexList();
-//        System.out.println(tour.getStartVertex());
-//        System.out.println(tour.getEndVertex());
-//        System.out.println(tour.getEdgeList());
-        
-//        createMoveStationEdges(moveStations);
         HttpClientWrapper clientWrapper = new HttpClientWrapper("80");
         var sensors = clientWrapper.getAirQualityData("2020", "01", "01");
         var noFlyZones = clientWrapper.getNoFlyZones();
         
         double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
+
         System.out.println(noFlyZones[0].getBounds());
         double droneStartingLat = Double.parseDouble(args[3]);
         double droneStartingLong = Double.parseDouble(args[4]);
         Point droneStartingPoint = Point.fromLngLat(droneStartingLong, droneStartingLat);
-//        var dpf = new DronePathFinder(droneStartingPoint, sensors, noFlyZones, BOUNDARY_LONG_LATS);
-        System.out.println(visualizeSensors(sensors));
+        System.out.println("before dpf");
+        var dpf = new DronePathFinder(droneStartingPoint, sensors, noFlyZones, BOUNDARY_LONG_LATS);
         
+//        var featuresList = new ArrayList<Feature>(sensors.size());
+//        
+//        for (var sensor: sensors) {
+//            featuresList.add(sensor.generateGeojson());
+//        }
+//        
+       
+        
+//        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
+
+        var featlist = dpf.moveStationsGraphToGeojson();
+//        var featlist = new ArrayList<Feature>();
+        featlist.add(generateBoundaryLineFeature());
+        String geojson = FeatureCollection.fromFeatures(featlist).toJson();
+        System.out.println("hello!!!");
+        writeFile("this-is-a-test.geojson",geojson);
+//        System.out.println(geojson);
+//        System.out.println(geojson);
     }
     
-    public static String visualizeSensors(ArrayList<Sensor> sensors) {
-        var featuresList = new ArrayList<Feature>(sensors.size());
+    // generate Geojson for the outer line that surrounds the heatmap
+    public static Feature generateBoundaryLineFeature() {
+        var boundaryCoords = new ArrayList<Point>(5);
+        final double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
+        Point bottomLeftCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[0], BOUNDARY_LONG_LATS[1]);
+        Point topRightCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[2], BOUNDARY_LONG_LATS[3]);
+        Point topLeftCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[0], BOUNDARY_LONG_LATS[3]);
+        Point bottomRightCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[2], BOUNDARY_LONG_LATS[1]);
+        boundaryCoords.add(topLeftCoord);
+        boundaryCoords.add(topRightCoord);
+        boundaryCoords.add(bottomRightCoord);
+        boundaryCoords.add(bottomLeftCoord);
+        boundaryCoords.add(topLeftCoord);
 
-        for (var sensor: sensors) {
-            featuresList.add(sensor.generateGeojson());
-        }
+        LineString boundaryLineString = LineString.fromLngLats(boundaryCoords);
+        Feature heatmapFeature = Feature.fromGeometry(boundaryLineString);
+        heatmapFeature.addStringProperty("name", "heatmap_boundary");
 
-        return FeatureCollection.fromFeatures(featuresList).toJson();
+        return heatmapFeature;
     }
+    
+    public static void writeFile(String filePath, String content) {
+        final Path file = Path.of(filePath);
+        try {
+            Files.writeString(file, (CharSequence) content, StandardOpenOption.CREATE);
+        } catch (IOException e) {
+            System.out.println("Error occured during writing of file: " + filePath + "\n" + e);
+            System.exit(1);
+        }
+    }
+
 
     
 //    public static List<List<Point>> removeInvalidMoveStations(Point[][] moveStations) {

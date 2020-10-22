@@ -1,5 +1,7 @@
 package uk.ac.ed.inf.aqmaps;
 
+import java.awt.geom.Area;
+import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
@@ -14,6 +16,9 @@ import org.jgrapht.graph.SimpleWeightedGraph;
 import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
 import org.jgrapht.alg.tour.NearestNeighborHeuristicTSP;
 
+import com.mapbox.geojson.Feature;
+import com.mapbox.geojson.FeatureCollection;
+import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 
 // Class to compute drone movements to travel to all sensors and return to starting location
@@ -37,6 +42,28 @@ public class DronePathFinder {
     private SimpleWeightedGraph<Sensor,DefaultWeightedEdge> sensorsGraph;
     private Object dronePath;
     
+    public ArrayList<Feature> moveStationsGraphToGeojson() {
+        
+        var featuresList = new ArrayList<Feature>();
+        
+        for (var moveStation : moveStationsGraph.vertexSet()) {
+            var moveStationFeature = Feature.fromGeometry(moveStation);
+            featuresList.add(moveStationFeature);
+        }
+        
+        for (var edge : moveStationsGraph.edgeSet()) {
+            var edgeCoords = new ArrayList<Point>(2);
+            edgeCoords.add(moveStationsGraph.getEdgeSource(edge));
+            edgeCoords.add(moveStationsGraph.getEdgeTarget(edge));
+            LineString edgeLineString = LineString.fromLngLats(edgeCoords);
+            Feature edgeFeature = Feature.fromGeometry(edgeLineString);
+            featuresList.add(edgeFeature);
+        }
+        
+//        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
+        
+        return featuresList;
+    }
     
     public DronePathFinder(Point droneStartingPoint, ArrayList<Sensor> sensors, Path2D[] noFlyZones, double[] boundaryLongLats) {
         this.droneStartingPoint = droneStartingPoint;
@@ -45,8 +72,6 @@ public class DronePathFinder {
         this.boundaryLongLats = boundaryLongLats;
         this.moveStations = createMoveStationVertices();
         this.moveStationsGraph = createMoveStationGraph(moveStations);
-        System.out.println(moveStations[12][27]);
-        System.out.println(getShortestPathBetweenMoveStations(moveStations[2][2], moveStations[12][27]));
 //        System.out.println(getShortestPathBetweenMoveStations(moveStations[0][0], moveStations[1][10]));
 //        System.out.println(getShortestPathBetweenMoveStations(moveStations[0][0], moveStations[1][1]));
 //        System.out.println(getShortestPathBetweenMoveStations(moveStations[0][0], moveStations[1][10]));
@@ -249,6 +274,60 @@ public class DronePathFinder {
                 }
             }
         }
+        removeInvalidMoveStationEdges(moveStationsGraph);
+    }
+    
+    private void removeInvalidMoveStationEdges(Graph<Point, DefaultEdge> moveStationsGraph) {
+        
+        Area[] noFlyZonesArea = new Area[noFlyZones.length];
+        
+        for (int i = 0 ; i < noFlyZones.length ; i++) {
+            noFlyZonesArea[i] = new Area(noFlyZones[i]);
+        }
+        
+        int j = 0;
+        var invalidEdges = new ArrayList<DefaultEdge>();
+        for (var edge : moveStationsGraph.edgeSet()) {
+            for (var noFlyZoneArea : noFlyZonesArea) {
+                var edgePath = convertGraphEdgeToPath2D(moveStationsGraph, edge);
+                var edgeArea = new Area(edgePath);
+                if (j == 0) System.out.println(edgeArea.getBounds());
+                edgeArea.intersect(noFlyZoneArea);
+                if (j == 0) System.out.println(edgeArea.getBounds());
+                if (!edgeArea.isEmpty()) {
+                    System.out.println("removing edge: " + edge);
+                    invalidEdges.add(edge);
+                    break;
+                }
+                j++;
+            }
+        }
+        
+        // remove from graph outside of iteration structure above
+        //  to avoid ConcurrentModificationException
+        for ( var invalidEdge : invalidEdges) {
+            moveStationsGraph.removeEdge(invalidEdge);
+        }
+        
+    }
+    
+    // Convert a graph edge to Path2D object
+    // Used to determine if a graph edge intersects a no fly zone
+    private Path2D convertGraphEdgeToPath2D(Graph<Point, DefaultEdge> graph ,DefaultEdge edge) {
+        Path2D edgePath = new Path2D.Double();
+
+        var edgeSource = graph.getEdgeSource(edge);
+        var edgeTarget = graph.getEdgeTarget(edge);
+        
+        edgePath.moveTo(edgeSource.longitude(), edgeSource.latitude());
+        edgePath.lineTo(edgeTarget.longitude(),  edgeSource.latitude());
+        // Must give some width to the path otherwise cannot compute intersection
+        edgePath.lineTo(edgeTarget.longitude() + 0.0001, edgeTarget.latitude() + 0.0001);
+        edgePath.lineTo(edgeSource.longitude() + 0.0001, edgeSource.latitude() + 0.0001);
+        edgePath.lineTo(edgeSource.longitude(), edgeSource.latitude());
+        edgePath.closePath();
+
+        return edgePath;
     }
     
 }
