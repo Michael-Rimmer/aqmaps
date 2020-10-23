@@ -45,7 +45,6 @@ public class App
         
         double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
 
-        System.out.println(noFlyZones[0].getBounds());
         double droneStartingLat = Double.parseDouble(args[3]);
         double droneStartingLong = Double.parseDouble(args[4]);
         Point droneStartingPoint = Point.fromLngLat(droneStartingLong, droneStartingLat);
@@ -66,7 +65,6 @@ public class App
 //        var featlist = new ArrayList<Feature>();
         featlist.add(generateBoundaryLineFeature());
         String geojson = FeatureCollection.fromFeatures(featlist).toJson();
-        System.out.println("hello!!!");
         writeFile("this-is-a-test.geojson",geojson);
 //        System.out.println(geojson);
 //        System.out.println(geojson);

@@ -220,10 +220,8 @@ public class DronePathFinder {
             }
         }
 
-        // Remove move stations that are within no fly zones or outside the boundary
-        Point[][] validMoveStations = removeInvalidMoveStations(moveStations);
-
-        return moveStations;
+       // Remove move stations that are within no fly zones or outside the boundary
+       return(removeInvalidMoveStations(moveStations));
     }
     
     private Point[][] removeInvalidMoveStations(Point[][] moveStations) {
@@ -260,52 +258,62 @@ public class DronePathFinder {
         for (int i = 0; i < moveStations.length; i++) {
             for (int j = 0; j < moveStations[0].length - 1; j++) {
 
+                // Ensure not adding edge to an invalid move station
+                // Connect every move station to its rightmost neighbour
                 if (moveStations[i][j] != null && moveStations[i][j+1] != null) {
                     moveStationsGraph.addEdge(moveStations[i][j], moveStations[i][j+1]);
                 }
                 
-                if (i % 2 == 1 && 
-                        moveStations[i][j] != null && 
-                        i != moveStations.length -1) {
+                // For every second row, connect move stations to the closest two above and closest two below.
+                if (i % 2 == 1 && moveStations[i][j] != null) {
                     if (moveStations[i-1][j] != null) moveStationsGraph.addEdge(moveStations[i][j], moveStations[i-1][j]);
                     if (moveStations[i-1][j+1] != null) moveStationsGraph.addEdge(moveStations[i][j], moveStations[i-1][j+1]);
-                    if (moveStations[i+1][j] != null) moveStationsGraph.addEdge(moveStations[i][j], moveStations[i+1][j]);
-                    if (moveStations[i+1][j+1] != null) moveStationsGraph.addEdge(moveStations[i][j], moveStations[i+1][j+1]);
+                    // Only connect move station to closest two below if not on last row
+                    if (i != moveStations.length -1) {
+                        if (moveStations[i+1][j] != null) moveStationsGraph.addEdge(moveStations[i][j], moveStations[i+1][j]);
+                        if (moveStations[i+1][j+1] != null) moveStationsGraph.addEdge(moveStations[i][j], moveStations[i+1][j+1]);
+                    }
                 }
             }
         }
+
         removeInvalidMoveStationEdges(moveStationsGraph);
     }
     
+    // Remove edges that are within no fly zones
     private void removeInvalidMoveStationEdges(Graph<Point, DefaultEdge> moveStationsGraph) {
-        
+
+        // Convert no fly zones into area objects in order to use intersect()
         Area[] noFlyZonesArea = new Area[noFlyZones.length];
         
         for (int i = 0 ; i < noFlyZones.length ; i++) {
             noFlyZonesArea[i] = new Area(noFlyZones[i]);
         }
         
-        int j = 0;
         var invalidEdges = new ArrayList<DefaultEdge>();
+
+        // Iterate over all edges
         for (var edge : moveStationsGraph.edgeSet()) {
+            // Iterate over all no fly zones
             for (var noFlyZoneArea : noFlyZonesArea) {
+                // Must convert to Path2D object in order to use intersect()
                 var edgePath = convertGraphEdgeToPath2D(moveStationsGraph, edge);
                 var edgeArea = new Area(edgePath);
-                if (j == 0) System.out.println(edgeArea.getBounds());
+
                 edgeArea.intersect(noFlyZoneArea);
-                if (j == 0) System.out.println(edgeArea.getBounds());
+
+                // If area is not empty then we know the edge overlaps no fly zone
                 if (!edgeArea.isEmpty()) {
-                    System.out.println("removing edge: " + edge);
                     invalidEdges.add(edge);
+                    // Skip to next edge
                     break;
                 }
-                j++;
             }
         }
         
-        // remove from graph outside of iteration structure above
-        //  to avoid ConcurrentModificationException
-        for ( var invalidEdge : invalidEdges) {
+        // Remove from graph outside of iteration structure above
+        // to avoid ConcurrentModificationException
+        for (var invalidEdge : invalidEdges) {
             moveStationsGraph.removeEdge(invalidEdge);
         }
         
