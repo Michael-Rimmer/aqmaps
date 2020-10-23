@@ -61,7 +61,9 @@ public class App
         
 //        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
 
-        var featlist = dpf.moveStationsGraphToGeojson();
+//        var featlist = dpf.moveStationsGraphToGeojson();
+        var featlist = dpf.sensorsGraphToGeojson();
+        
 //        var featlist = new ArrayList<Feature>();
         featlist.add(generateBoundaryLineFeature());
         String geojson = FeatureCollection.fromFeatures(featlist).toJson();

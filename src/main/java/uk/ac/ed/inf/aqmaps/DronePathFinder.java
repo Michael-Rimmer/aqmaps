@@ -5,6 +5,7 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.jgrapht.Graph;
 import org.jgrapht.GraphPath;
@@ -40,7 +41,8 @@ public class DronePathFinder {
     // Each move station represented as geojson Point object to store its coordinates
     private Graph<Point,DefaultEdge> moveStationsGraph;
     private SimpleWeightedGraph<Sensor,DefaultWeightedEdge> sensorsGraph;
-    private Object dronePath;
+    private ArrayList<DroneMove> droneMoves;
+    private List<Sensor> sensorsTravelOrder;
     
     public ArrayList<Feature> moveStationsGraphToGeojson() {
         
@@ -65,6 +67,29 @@ public class DronePathFinder {
         return featuresList;
     }
     
+    public ArrayList<Feature> sensorsGraphToGeojson() {
+        
+        var featuresList = new ArrayList<Feature>();
+        
+        for (var sensor : sensorsGraph.vertexSet()) {
+            var moveStationFeature = Feature.fromGeometry(sensor.getClosestMoveStation());
+            featuresList.add(moveStationFeature);
+        }
+        
+        for (var edge : sensorsGraph.edgeSet()) {
+            var edgeCoords = new ArrayList<Point>(2);
+            edgeCoords.add(sensorsGraph.getEdgeSource(edge).getClosestMoveStation());
+            edgeCoords.add(sensorsGraph.getEdgeTarget(edge).getClosestMoveStation());
+            LineString edgeLineString = LineString.fromLngLats(edgeCoords);
+            Feature edgeFeature = Feature.fromGeometry(edgeLineString);
+            featuresList.add(edgeFeature);
+        }
+        
+//        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
+        
+        return featuresList;
+    }
+    
     public DronePathFinder(Point droneStartingPoint, ArrayList<Sensor> sensors, Path2D[] noFlyZones, double[] boundaryLongLats) {
         this.droneStartingPoint = droneStartingPoint;
         this.sensors = sensors;
@@ -72,19 +97,41 @@ public class DronePathFinder {
         this.boundaryLongLats = boundaryLongLats;
         this.moveStations = createMoveStationVertices();
         this.moveStationsGraph = createMoveStationGraph(moveStations);
-//        System.out.println(getShortestPathBetweenMoveStations(moveStations[0][0], moveStations[1][10]));
-//        System.out.println(getShortestPathBetweenMoveStations(moveStations[0][0], moveStations[1][1]));
-//        System.out.println(getShortestPathBetweenMoveStations(moveStations[0][0], moveStations[1][10]));
-//        System.out.println(getShortestPathBetweenMoveStations(moveStations[0][0], moveStations[1][1]));
-//        System.out.println(getShortestPathBetweenMoveStations(moveStations[0][0], moveStations[1][10]));
-//        this.sensorsGraph = createSensorsGraph();
-//        computePath();
+        this.sensorsGraph = createSensorsGraph();
+        this.sensorsTravelOrder = computeSensorsTravelOrder();
+        this.droneMoves = computeDroneMoves();
+    }
+    
+    private ArrayList<DroneMove> computeDroneMoves() {
+        var droneMoves = new ArrayList<DroneMove>();
+        
+        for (int i = 0; i < sensorsTravelOrder.size()-1; i++) {
+            Sensor sourceSensor = sensorsTravelOrder.get(i);
+            Sensor targetSensor = sensorsTravelOrder.get(i+1);
+            
+            var moveStationsPath = getShortestPathBetweenMoveStations(
+                    sourceSensor.getClosestMoveStation(),
+                    targetSensor.getClosestMoveStation());
+            
+            DroneMove tempDroneMove = new DroneMove(sourceSensor, targetSensor, moveStationsPath);
+            
+            droneMoves.add(tempDroneMove);
+        }
+
+        return droneMoves;
+    }
+    
+    public ArrayList<DroneMove> getDroneMoves() {
+        return this.droneMoves;
     }
 
-//    private void computePath() {
-//        var  hamiltonianPathFinder = new NearestNeighborHeuristicTSP<Object, DefaultWeightedEdge>(droneStartingPoint);
-//        dronePath = hamiltonianPathFinder.getTour(sensorsGraph);
-//    }
+    private List<Sensor> computeSensorsTravelOrder() {
+        // TODO set starting point
+        var  hamiltonianPathFinder = new NearestNeighborHeuristicTSP<Sensor, DefaultWeightedEdge>();
+        var sensorsTravelPath = hamiltonianPathFinder.getTour(sensorsGraph);
+        var sensorsTravelOrder = sensorsTravelPath.getVertexList();
+        return sensorsTravelOrder;
+    }
 
     private SimpleWeightedGraph<Sensor,DefaultWeightedEdge> createSensorsGraph() {
 
@@ -101,13 +148,11 @@ public class DronePathFinder {
         // with weights determined by length of the shortest path between the two sensors
         for (var sensorA: sensors) {
             for (var sensorB: sensors) {
-                if (sensorA != sensorB) {
+                // Check edge does not already exists
+                if (sensorA != sensorB && !sensorsGraph.containsEdge(sensorA, sensorB)) {
                     var tempEdge = sensorsGraph.addEdge(sensorA, sensorB);
-                    System.out.println("sensor A coords: " + sensorA.getCoords());
-                    System.out.println("sensor B coords: " + sensorB.getCoords());
-                    var tempEdgeWeight = getShortestPathBetweenMoveStations(sensorA.getClosestMoveStation(), sensorB.getClosestMoveStation());
-                    System.out.println(tempEdgeWeight.getClass());
-//                    sensorsGraph.setEdgeWeight(tempEdge, tempEdgeWeight);
+                    var tempEdgeWeight = getShortestPathBetweenMoveStations(sensorA.getClosestMoveStation(), sensorB.getClosestMoveStation()).getLength();
+                    sensorsGraph.setEdgeWeight(tempEdge, tempEdgeWeight);
                 }
             }
         }
@@ -116,9 +161,10 @@ public class DronePathFinder {
     }
     
     private void addClosestMoveStationToSensors() {
-        // For each sensor, set the closestMoveStation attribute to the move station
-        // according to Euclidean distance
+        // For each sensor, set the closestMoveStation attribute to the closest 
+        // move station according to Euclidean distance
         for (var sensor: sensors) {
+            // Initialise closest station
             Point closestStation = moveStations[0][0];
             double closestDistance = euclideanDistance(sensor.getCoords(), moveStations[0][0]);
             // Iterate over all move stations to find the closest
@@ -126,6 +172,7 @@ public class DronePathFinder {
                 for (int j = 0; j < moveStations[0].length; j++) {
                     if (moveStations[i][j] != null) {
                         Double tempClosestDistance = euclideanDistance(sensor.getCoords(), moveStations[i][j]);
+                        // Update closest station and distance
                         if (tempClosestDistance < closestDistance) {
                             closestDistance = tempClosestDistance;
                             closestStation = moveStations[i][j];
@@ -155,6 +202,12 @@ public class DronePathFinder {
 //        System.out.println(a);
 //        System.out.println(b);
         GraphPath<Point, DefaultEdge> shortestPath = shortestPathFinder.getPath(a, b);
+        
+        if (shortestPath == null) {
+            System.out.println("SHORTESTPATH IS NULL");
+            System.out.println(a);
+            System.out.println(b);
+        }
 //        System.out.println("after get path");
 //        System.out.println(shortestPath);
         return shortestPath;
