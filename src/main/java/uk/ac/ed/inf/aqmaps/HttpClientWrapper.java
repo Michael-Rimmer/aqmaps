@@ -88,8 +88,8 @@ public class HttpClientWrapper {
     }
 
     // For a given date, get air-quality-data json from HTTP server and format into ArrayList of sensors.
-    public ArrayList<Sensor> getAirQualityData(String year, String month, String  day) {
-
+    public ArrayList<Sensor> getAirQualityData(String year, String month, String day) throws Exception {
+        System.out.println("CLIENT WRAPPER GETTING: " + String.format("%s-%s-%s", day, month, year));
         var sensors = new ArrayList<Sensor>();
 
         // build HTTP request
@@ -107,7 +107,8 @@ public class HttpClientWrapper {
             sensors = new Gson().fromJson(response, sensorListType);
         } catch (IOException | InterruptedException e) {
             System.out.println("Failed to GET " + airQualityDataUrl +  " from WebServer:" + "\n" + e);
-            System.exit(1);
+            throw(e);
+            //            System.exit(1);
         }
 
         return setSensorCoords(sensors);
@@ -137,7 +138,7 @@ public class HttpClientWrapper {
                 double longitude = coords.get("lng").getAsDouble();
                 
                 // Set coordinates for sensor object
-                sensor.setCoords(longitude, latitude);
+                sensor.setLongLat(longitude, latitude);
             } catch (IOException | InterruptedException e) {
                 System.out.println("Failed to GET " + wordsUrl +  " from WebServer:" + "\n" + e);
                 System.exit(1);

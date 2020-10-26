@@ -36,95 +36,52 @@ import com.mapbox.geojson.LineString;
  */
 public class App 
 {
-    public static void main( String[] args ) throws IOException, InterruptedException, URISyntaxException
+    public static void main( String[] args ) throws Exception
     {
+        // Declare constants
+        double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
         
         HttpClientWrapper clientWrapper = new HttpClientWrapper("80");
-        var sensors = clientWrapper.getAirQualityData("2020", "01", "01");
-        var noFlyZones = clientWrapper.getNoFlyZones();
         
-        double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
-
+        var noFlyZones = clientWrapper.getNoFlyZones();
         double droneStartingLat = Double.parseDouble(args[3]);
         double droneStartingLong = Double.parseDouble(args[4]);
         Point droneStartingPoint = Point.fromLngLat(droneStartingLong, droneStartingLat);
-        System.out.println("before dpf");
-        var dpf = new DronePathFinder(droneStartingPoint, sensors, noFlyZones, BOUNDARY_LONG_LATS);
-        
-//        var featuresList = new ArrayList<Feature>(sensors.size());
-//        
-//        for (var sensor: sensors) {
-//            featuresList.add(sensor.generateGeojson());
-//        }
-//        
-       
-        
-//        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
 
-//        var featlist = dpf.moveStationsGraphToGeojson();
-        var featlist = dpf.sensorsGraphToGeojson();
+        String[] years = {"2020", "2021"};
+        String[] months = {"01", "02", "03", "04", "05", "06","07","08","09","10","11","12"};
+        String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
         
-//        var featlist = new ArrayList<Feature>();
-        featlist.add(generateBoundaryLineFeature());
-        String geojson = FeatureCollection.fromFeatures(featlist).toJson();
-        writeFile("this-is-a-test.geojson",geojson);
-//        System.out.println(geojson);
-//        System.out.println(geojson);
-    }
-    
-    // generate Geojson for the outer line that surrounds the heatmap
-    public static Feature generateBoundaryLineFeature() {
-        var boundaryCoords = new ArrayList<Point>(5);
-        final double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
-        Point bottomLeftCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[0], BOUNDARY_LONG_LATS[1]);
-        Point topRightCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[2], BOUNDARY_LONG_LATS[3]);
-        Point topLeftCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[0], BOUNDARY_LONG_LATS[3]);
-        Point bottomRightCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[2], BOUNDARY_LONG_LATS[1]);
-        boundaryCoords.add(topLeftCoord);
-        boundaryCoords.add(topRightCoord);
-        boundaryCoords.add(bottomRightCoord);
-        boundaryCoords.add(bottomLeftCoord);
-        boundaryCoords.add(topLeftCoord);
+//        String[] years = {"2020"};
+//        String[] months = {"01"};
+//        String[] days = {"01"};
+        
+        for (String year : years) {
+            for (String month : months) {
+                for (String day : days) {
+//                    try {
+                        var sensors = clientWrapper.getAirQualityData(year, month, day);
 
-        LineString boundaryLineString = LineString.fromLngLats(boundaryCoords);
-        Feature heatmapFeature = Feature.fromGeometry(boundaryLineString);
-        heatmapFeature.addStringProperty("name", "heatmap_boundary");
+                        var dpf = new DronePathFinder(droneStartingPoint, sensors, noFlyZones, BOUNDARY_LONG_LATS);
+        
+                        var droneMoves = dpf.getDroneMoves();
+//                        Drone drone = new Drone(droneMoves);
+                        
+                        if (droneMoves.size() >= 150) System.out.println("WARNING: " + String.format("%s/%s/%s", day,month,year));
+                        System.out.println(String.format("%s-%s-%s : ", day,month,year) + droneMoves.size());
+                        
+                        
+//                    } catch (Exception e) {
+//                        
+//                        System.out.println("FAILED TO GET " + String.format("%s-%s-%s", day,month,year));
+//                        break;
+//                    } finally {}
+                    
 
-        return heatmapFeature;
-    }
-    
-    public static void writeFile(String filePath, String content) {
-        final Path file = Path.of(filePath);
-        try {
-            Files.writeString(file, (CharSequence) content, StandardOpenOption.CREATE);
-        } catch (IOException e) {
-            System.out.println("Error occured during writing of file: " + filePath + "\n" + e);
-            System.exit(1);
+                }
+            }
         }
     }
-
-
     
-//    public static List<List<Point>> removeInvalidMoveStations(Point[][] moveStations) {
-//        var validMoveStations = new ArrayList<List<Point>>();
-//        Point[][] validMoveStations = new Point[moveStations.length][moveStations[0].length];
-//        
-//        for (int i = 0; i < moveStations.length; i++) {
-//            for (int j = 0; j < moveStations.length; j++) {
-//                if (isMoveStationInNoFlyZone(moveStations[i][j])) {
-//                    
-//                }
-//            }
-//        }
-//        
-//        return validMoveStations;
-//    }
-    
-//    public static boolean isMoveStationInNoFlyZone(Point moveStation) {
-//        if (true) {
-//            return true;
-//        } else {
-//            return false;
-//        }
-//    }
+
 }
