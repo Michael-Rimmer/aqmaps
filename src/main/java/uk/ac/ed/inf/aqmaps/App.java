@@ -40,21 +40,23 @@ public class App
     {
         // Declare constants
         double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
+        double MAX_DRONE_MOVE_DISTANCE = 0.0003;
         
         HttpClientWrapper clientWrapper = new HttpClientWrapper("80");
         
         var noFlyZones = clientWrapper.getNoFlyZones();
         double droneStartingLat = Double.parseDouble(args[3]);
         double droneStartingLong = Double.parseDouble(args[4]);
-        Point droneStartingPoint = Point.fromLngLat(droneStartingLong, droneStartingLat);
+        System.out.println("DRONE START: " + Double.toString(droneStartingLong) + " " + Double.toString(droneStartingLat));
+        MustVisitLocation droneStartingPoint = new MustVisitLocation(Point.fromLngLat(droneStartingLong, droneStartingLat));
 
-        String[] years = {"2020", "2021"};
-        String[] months = {"01", "02", "03", "04", "05", "06","07","08","09","10","11","12"};
-        String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
+//        String[] years = {"2020", "2021"};
+//        String[] months = {"01", "02", "03", "04", "05", "06","07","08","09","10","11","12"};
+//        String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
         
-//        String[] years = {"2020"};
-//        String[] months = {"01"};
-//        String[] days = {"01"};
+        String[] years = {"2020"};
+        String[] months = {"01"};
+        String[] days = {"01"};
         
         for (String year : years) {
             for (String month : months) {
@@ -62,12 +64,19 @@ public class App
 //                    try {
                         var sensors = clientWrapper.getAirQualityData(year, month, day);
 
-                        var dpf = new DronePathFinder(droneStartingPoint, sensors, noFlyZones, BOUNDARY_LONG_LATS);
+                        var dpf = new DronePathFinder(droneStartingPoint, sensors, noFlyZones, BOUNDARY_LONG_LATS, MAX_DRONE_MOVE_DISTANCE);
         
                         var droneMoves = dpf.getDroneMoves();
-//                        Drone drone = new Drone(droneMoves);
+                        Drone drone = new Drone(droneMoves);
+                        String geojson = drone.generateReadingsGeojson();
+                        String flightPath = drone.generateFlightPath();
                         
-                        if (droneMoves.size() >= 150) System.out.println("WARNING: " + String.format("%s/%s/%s", day,month,year));
+                        String flightPathFileName = String.format("flightpath-%s-%s-%s.txt", day, month, year);
+                        String readingsFileName = String.format("readings-%s-%s-%s.geojson", day, month, year);
+
+                        Utilities.writeFile(readingsFileName, geojson);
+                        Utilities.writeFile(flightPathFileName, flightPath);
+                        
                         System.out.println(String.format("%s-%s-%s : ", day,month,year) + droneMoves.size());
                         
                         

@@ -4,28 +4,36 @@ import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.Point;
 
 // Class representing a single Sensor.
-public class Sensor {
+public class Sensor extends MustVisitLocation {
+    private String location;
+    private float battery;
+
+    // set reading as String because value may be "null"
+    private String reading;
+
     
-    private final String location;
-    private final float battery;
-    private final float reading;
-    private Point longLat;
-    private Point closestMoveStation;
-    private boolean visited;
-    
-    public Sensor (String wordsLocation, float battery, float reading) {
+    public Sensor (String wordsLocation, float battery, String reading) {
+        super();
         this.location = wordsLocation;
         this.battery = battery;
         this.reading = reading;
-        this.visited = false;
     }
+
     
-    public void setVisited(boolean visited) {
-        this.visited = visited;
+    public float getReadingAsFloat() {
+        try {
+            return Float.parseFloat(this.reading);
+        } catch (NumberFormatException e) {
+            // Case when reading = "null"
+            return -1;
+        }
     }
     
     private String getMarkerColor() {
         String markerColor = "";
+
+        float reading = getReadingAsFloat();
+        
         if (reading >= 0 && reading <32) {
             markerColor = "#00ff00";
         } else if (reading >= 32 && reading < 64) {
@@ -52,6 +60,9 @@ public class Sensor {
     }
     
     private String getMarkerSymbol() {
+
+        float reading = getReadingAsFloat();
+        
         String markerSymbol = "";
         if (reading >= 0 && reading < 128) {
             markerSymbol = "lighthouse";
@@ -70,37 +81,12 @@ public class Sensor {
         return this.location;
     }
     
-    public float getReading() {
+    public String getReading() {
         return this.reading;
     }
     
     public float getBattery() {
         return this.battery;
-    }
-    
-    public void setLongLat(double longitude, double latitude) {
-        this.longLat = Point.fromLngLat(longitude, latitude);
-    }
-    
-    public Point getLongLat() {
-        return this.longLat;
-    }
-   
-    public void setClosestMoveStation(Point moveStation) {
-        
-//        if(euclideanDistance(coords, moveStation) > 0.0003) {
-//            throw new Exception("distance > 0.0003: between sensor with coords: " + coords + " and move station: " + moveStation);
-//        }
-        this.closestMoveStation = moveStation;
-    }
-    
-    private double euclideanDistance(Point a, Point b) {
-        // Computes Euclidean distance between two geojson point objects
-        return Math.sqrt(Math.pow(a.longitude()-b.longitude(),2) + Math.pow(a.latitude()-b.latitude(),2));
-    }
-    
-    public Point getClosestMoveStation() {
-        return this.closestMoveStation;
     }
     
     public Feature getGeojsonFeature() {

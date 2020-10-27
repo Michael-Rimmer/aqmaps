@@ -89,7 +89,6 @@ public class HttpClientWrapper {
 
     // For a given date, get air-quality-data json from HTTP server and format into ArrayList of sensors.
     public ArrayList<Sensor> getAirQualityData(String year, String month, String day) throws Exception {
-        System.out.println("CLIENT WRAPPER GETTING: " + String.format("%s-%s-%s", day, month, year));
         var sensors = new ArrayList<Sensor>();
 
         // build HTTP request

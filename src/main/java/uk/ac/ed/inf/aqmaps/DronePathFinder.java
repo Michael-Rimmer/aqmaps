@@ -26,39 +26,45 @@ import com.mapbox.geojson.Point;
 // while avoiding no fly zones.
 public class DronePathFinder {
     
-    // TODO: refactor out of the class when possible
-    // boundaryLongLats elements in format: minLong, minLat, maxLong, maxLat
-    private final static double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
-    private final static double MAX_DRONE_MOVE_DISTANCE = 0.0003;
-    public Sensor droneStart;
-    
-    private final Point droneStartingPoint;
-    public ArrayList<Sensor> sensors;
+    private final MustVisitLocation droneStart;
+    public ArrayList<Sensor> sensors; // TODO: possibly get rid because already contained in mustvisitlocations
     public final Path2D[] noFlyZones;
     private final double[] boundaryLongLats;
-    private final Point[][] moveStations;
+    private final double maxDroneMoveDistance;
     
-    // Graph object to store move stations and the paths between them
+    // Graph to store move stations and the paths between them
     // Each move station represented as geojson Point object to store its coordinates
-    private Graph<Point,DefaultEdge> moveStationsGraph;
-    private SimpleWeightedGraph<Sensor,DefaultWeightedEdge> sensorsGraph;
-    private ArrayList<DroneMove> droneMoves;
-    private List<Sensor> sensorsTravelOrder;
+    private Graph<Point,DefaultEdge> moveStationGraph;
     
-    public DronePathFinder(Point droneStartingPoint, ArrayList<Sensor> sensors, Path2D[] noFlyZones, double[] boundaryLongLats) {
-        //TODO delete this just a test
-        this.droneStart = new Sensor(null,0,0);
-        this.droneStart.setLongLat(droneStartingPoint.longitude(), droneStartingPoint.latitude());
-        this.droneStartingPoint = droneStartingPoint;
+    // Graph to store locations on the map that must be visited.
+    // Note these are either the drone starting location or Sensors
+    public ArrayList<MustVisitLocation> mustVisitLocations;
+    private SimpleWeightedGraph<MustVisitLocation,DefaultWeightedEdge> mustVisitGraph;
+    private List<MustVisitLocation> mustVisitTravelOrder; // TODO: map with must visit locations?
+    private ArrayList<DroneMove> droneMoves;
+    
+    public DronePathFinder(MustVisitLocation droneStartingLocation, ArrayList<Sensor> sensors, Path2D[] noFlyZones, double[] boundaryLongLats, double maxDroneMoveDistance) {
+        this.droneStart = droneStartingLocation;
         this.sensors = sensors;
-        this.sensors.add(droneStart);
         this.noFlyZones = noFlyZones;
         this.boundaryLongLats = boundaryLongLats;
-        this.moveStations = createMoveStationVertices();
-        this.moveStationsGraph = createMoveStationGraph(moveStations);
-        this.sensorsGraph = createSensorsGraph();
-        this.sensorsTravelOrder = computeSensorsTravelOrder();
+        this.maxDroneMoveDistance = maxDroneMoveDistance;
+
+        // remove this. assignments and act directly in the methods
+        this.mustVisitLocations = createMustVisitLocations();
+        this.moveStationGraph = createMoveStationGraph();
+        this.mustVisitGraph = createMustVisitGraph();
+        this.mustVisitTravelOrder = computeMustVisitTravelOrder();
+
         this.droneMoves = computeDroneMoves();
+        mustVisitGraphToGeojson();
+    }
+    
+    private ArrayList<MustVisitLocation> createMustVisitLocations() {
+        var mustVisitLocations = new ArrayList<MustVisitLocation>();
+        mustVisitLocations.addAll(sensors);
+        mustVisitLocations.add(droneStart);
+        return mustVisitLocations;
     }
     
     private ArrayList<DroneMove> computeDroneMoves() {
@@ -67,15 +73,17 @@ public class DronePathFinder {
 
         // For each pair of sensors, find the shortest move station path between them
         // Create a drone move for each edge in the path between them
-        for (int i = 0; i < sensorsTravelOrder.size()-1; i++) {
-            Sensor sourceSensor = sensorsTravelOrder.get(i);
-            Sensor targetSensor = sensorsTravelOrder.get(i+1);
-            
-            var shortestPath = getShortestPathBetweenMoveStations(
-                    sourceSensor.getClosestMoveStation(),
-                    targetSensor.getClosestMoveStation());
-            
-            // Create a drone move for each pair of move stations in the path between sensors
+        // Note droneStart is skipped         
+        for (int i = 0; i < mustVisitTravelOrder.size()-1; i++) {
+            var sourceMustVisit = mustVisitTravelOrder.get(i);
+            var targetMustVisit = mustVisitTravelOrder.get(i+1);
+
+            var shortestPath = computeShortestPathBetweenMoveStations(
+                    sourceMustVisit.getClosestMoveStation(),
+                    targetMustVisit.getClosestMoveStation());
+
+            // Create a drone move for each pair of move stations in the path between
+            // source and target must visit locations
             for (int j = 0 ; j < shortestPath.getVertexList().size() - 1 ; j++) {
 
                 Point stationA = shortestPath.getVertexList().get(j);
@@ -83,9 +91,10 @@ public class DronePathFinder {
 
                 // Compute whether a drone move ends at a sensor
                 Sensor tempSensor = null;
-                if (stationB == targetSensor.getClosestMoveStation()) {
-                    targetSensor.setVisited(true);
-                    tempSensor = targetSensor;
+                if (stationB == targetMustVisit.getClosestMoveStation() 
+                        && Sensor.class.isInstance(targetMustVisit)) {
+                    targetMustVisit.setVisited(true);
+                    tempSensor = (Sensor) targetMustVisit;
                 }
                 
                 // Create DroneMove object and add to list
@@ -93,111 +102,167 @@ public class DronePathFinder {
                 droneMoves.add(tempDroneMove);
             }
         }
+        
+//        if(!checkDroneMovesValid(droneMoves)) {
+//            return computeDroneMoves();
+//        }
+        
         return droneMoves;
+    }
+    
+    private boolean checkDroneMovesValid(ArrayList<DroneMove> droneMoves) {
+        
+        if (droneMoves.size()>150) {
+            System.out.println("dronemoves too long: " + droneMoves.size());
+            return false;
+        }
+        
+        for (Sensor sensor : sensors) {
+            if(!sensor.getVisited()) {
+                System.out.println("SENSOR NOT VISITED : " + sensor.getWordsLocation() + "," + sensor.getClosestMoveStation());
+                return false;
+            }
+        }
+        
+        return true;
     }
     
     public ArrayList<DroneMove> getDroneMoves() {
         return this.droneMoves;
     }
 
-    private List<Sensor> computeSensorsTravelOrder() {
-        // Finds the shortest loop of the sensors and returns their order
-        // TODO set starting point
-        
-        var  hamiltonianPathFinder = new NearestNeighborHeuristicTSP<Sensor, DefaultWeightedEdge>(droneStart);
-        var sensorsTravelPath = hamiltonianPathFinder.getTour(sensorsGraph);
+    private List<MustVisitLocation> computeMustVisitTravelOrder() {
+        // Instantiate path finder that will compute a closed loop of must visit locations with drone start as the first 
+        // and last node
+        var  hamiltonianPathFinder = new NearestNeighborHeuristicTSP<MustVisitLocation, DefaultWeightedEdge>(droneStart);
+        var sensorsTravelPath = hamiltonianPathFinder.getTour(mustVisitGraph);
         var sensorsTravelOrder = sensorsTravelPath.getVertexList();
         return sensorsTravelOrder;
     }
 
-    private SimpleWeightedGraph<Sensor,DefaultWeightedEdge> createSensorsGraph() {
-
-        var sensorsGraph = new SimpleWeightedGraph<Sensor,DefaultWeightedEdge>(DefaultWeightedEdge.class);
-        
-        addClosestMoveStationToSensors();
-
+    private void addMustVisitGraphVertices(SimpleWeightedGraph<MustVisitLocation, DefaultWeightedEdge> sensorsGraph) {
         // Add all sensors to the graph
         for (var sensor: sensors) {
             sensorsGraph.addVertex(sensor);
         }
-
+        
+        sensorsGraph.addVertex(droneStart);
+    }
+    
+    private void addMustVisitGraphEdges(SimpleWeightedGraph<MustVisitLocation,DefaultWeightedEdge> sensorsGraph) {
         // Add edges between every pair of sensors
         // with weights determined by length of the shortest path between the two sensors
-        for (var sensorA: sensors) {
-            for (var sensorB: sensors) {
-                // Check edge does not already exists
-                if (sensorA != sensorB && !sensorsGraph.containsEdge(sensorA, sensorB)) {
-                    var tempEdge = sensorsGraph.addEdge(sensorA, sensorB);
-                    var tempEdgeWeight = getShortestPathBetweenMoveStations(sensorA.getClosestMoveStation(), sensorB.getClosestMoveStation()).getLength();
+        for (var mustVisitA: mustVisitLocations) {
+            for (var mustVisitB: mustVisitLocations) {
+                // Check edge does not already exist
+                if (mustVisitA != mustVisitB && !sensorsGraph.containsEdge(mustVisitA, mustVisitB)) {
+                    var tempEdge = sensorsGraph.addEdge(mustVisitA, mustVisitB);
+                    var tempEdgeWeight = computeMustVisitGraphEdgeWeight(mustVisitA, mustVisitB);
                     sensorsGraph.setEdgeWeight(tempEdge, tempEdgeWeight);
                 }
             }
         }
-
-        return sensorsGraph;
     }
     
-    private void addClosestMoveStationToSensors() {
-        // For each sensor, set the closestMoveStation attribute to the closest 
-        // move station according to Euclidean distance
-        for (var sensor: sensors) {
-            // Initialise closest station
-            Point closestStation = moveStations[0][0];
-            double closestDistance = euclideanDistance(sensor.getLongLat(), moveStations[0][0]);
+    private int computeMustVisitGraphEdgeWeight(MustVisitLocation a, MustVisitLocation b) {
+
+        var edgeLength = computeShortestPathBetweenMoveStations(a.getClosestMoveStation(), b.getClosestMoveStation()).getLength();
+        // TODO: possibly delete this due to inefficiency  alternative is to make a new station and move there and back
+        // Drone must move before each reading. Therefore,
+        // if sensors have identical move stations then return a high weight
+        // because this will 
+        if (edgeLength > 0) {
+            return edgeLength;
+        } else {
+            return 9999;
+        }
+
+    }
+    
+    private SimpleWeightedGraph<MustVisitLocation, DefaultWeightedEdge> createMustVisitGraph() {
+
+        var mustVisitGraph = new SimpleWeightedGraph<MustVisitLocation,DefaultWeightedEdge>(DefaultWeightedEdge.class);
+        
+        addClosestMoveStationToMustVisitLocations();
+        addMustVisitGraphVertices(mustVisitGraph);
+        addMustVisitGraphEdges(mustVisitGraph);
+        
+        return mustVisitGraph;
+    }
+
+    // For each sensor, set the closestMoveStation attribute to the closest 
+    // move station according to Euclidean distance
+    private void addClosestMoveStationToMustVisitLocations() {
+
+        var moveStations = moveStationGraph.vertexSet();
+        
+        // Iterate over all sensors
+        for (var mustVisit: mustVisitLocations) {
+
+            Point closestStation = null;
+            double closestDistance = -1;
+
             // Iterate over all move stations to find the closest
-            for (int i = 0; i < moveStations.length; i++) {
-                for (int j = 0; j < moveStations[0].length; j++) {
-                    if (moveStations[i][j] != null) {
-                        Double tempClosestDistance = euclideanDistance(sensor.getLongLat(), moveStations[i][j]);
-                        // Update closest station and distance
-                        if (tempClosestDistance < closestDistance) {
-                            closestDistance = tempClosestDistance;
-                            closestStation = moveStations[i][j];
-                        }
-                    }
+            for (var moveStation : moveStations) {
+
+                // Initialise closest station
+                if (closestStation == null && closestDistance == -1) {
+                    closestStation = moveStation;
+                    closestDistance = Utilities.euclideanDistance(mustVisit.getLongLat(), moveStation);
+                }
+
+                 Double tempClosestDistance = Utilities.euclideanDistance(mustVisit.getLongLat(), moveStation);
+
+                if (tempClosestDistance < closestDistance) {
+                    closestDistance = tempClosestDistance;
+                    closestStation = moveStation;
                 }
             }
-            try {
-                sensor.setClosestMoveStation(closestStation);
-            } catch (Exception e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+            
+            mustVisit.setClosestMoveStation(closestStation);
+            if (!Sensor.class.isInstance(mustVisit)) {
+                System.out.println("DRONE CLOSEST MOVE STATION:");
+                System.out.println(mustVisit.getClosestMoveStation());
             }
         }
     }
     
-    private double euclideanDistance(Point a, Point b) {
-        // Computes Euclidean distance between two geojson point objects
-        return Math.sqrt(Math.pow(a.longitude()-b.longitude(),2) + Math.pow(a.latitude()-b.latitude(),2));
-    }
-    
-    
-    
-    private GraphPath<Point, DefaultEdge> getShortestPathBetweenMoveStations(Point a, Point b) {
-        var shortestPathFinder = new DijkstraShortestPath<Point, DefaultEdge>(moveStationsGraph);
-        var shortestPath = shortestPathFinder.getPath(a, b);
+    private boolean checkClosestStationValid(MustVisitLocation mustVisit) {
         
-        var vertexList = shortestPath.getVertexList();
-        for (var vertex : vertexList) {
-            if (!vertexList.contains(a)) {
-                System.out.println("FUCKED UP a not in shortest path");
-            } 
-            if (!vertexList.contains(b)) {
-                System.out.println("FUCKED UP b not in shortest path");
-            } 
+        double distance = Utilities.euclideanDistance(mustVisit.getLongLat(), mustVisit.getClosestMoveStation());
+        
+        if (distance < maxDroneMoveDistance) {
+            return true;
         }
         
-        
+        return false;
+    }
+    
+    private GraphPath<Point, DefaultEdge> computeShortestPathBetweenMoveStations(Point a, Point b) {
+        // Use Dijkstras algorithm
+        var shortestPathFinder = new DijkstraShortestPath<Point, DefaultEdge>(moveStationGraph);
+        var shortestPath = shortestPathFinder.getPath(a, b);
         return shortestPath;
     }
 
+    // Pre-computing the points on the map that the drone may move to by distributing these points
+    // across the campus map in an equilateral triangle pattern. These points represent the move stations.
+    // As a result, the drone is constrained to move in directions that are multiples of 60 degrees: 0, 60, 120, 240, 300
+    private Graph<Point,DefaultEdge> createMoveStationGraph() {
 
-    private Graph<Point,DefaultEdge> createMoveStationGraph(Point[][] moveStations) {
-        // Pre-computing the points on the map that the drone may move to by distributing these points
-        // across the campus map in an equilateral triangle pattern. These points represent the move stations.
-        // As a result, the drone is constrained to move in directions that are multiples of 60 degrees: 0, 60, 120, 240, 300
         Graph<Point,DefaultEdge> moveStationsGraph = new DefaultUndirectedGraph<>(DefaultEdge.class);
+
+        Point[][] moveStations = createMoveStationsGrid();
+        addMoveStationsGraphVertices(moveStationsGraph, moveStations);
+        addMoveStationsGraphEdges(moveStationsGraph, moveStations);
         
+        // Remove any move stations that have no edges
+        removeIsolatedMoveStations(moveStationsGraph);
+
+        return moveStationsGraph;
+    }
+    
+    private Point[][] addMoveStationsGraphVertices(Graph<Point, DefaultEdge> moveStationsGraph, Point[][] moveStations) {
         // Add each move station to the graph
         for (int i = 0; i < moveStations.length; i++) {
             for (int j = 0; j < moveStations[0].length; j++) {
@@ -206,41 +271,62 @@ public class DronePathFinder {
                 }
             }
         }
-
-        // Add edges to connect move stations in an equilateral triangle pattern
-        addMoveStationEdges(moveStationsGraph, moveStations);
-        return moveStationsGraph;
+        
+        // Create vertex the drone starting point
+        moveStationsGraph.addVertex(droneStart.getLongLat());
+        
+        return moveStations;
     }
 
+    // Remove any move stations that have no edges from the graph
+    private void removeIsolatedMoveStations(Graph<Point, DefaultEdge> moveStationsGraph) {
+       
+        var isolatedStations = new ArrayList<Point>();
+        
+        // Iterate over all move stations in the graph
+        for (Point moveStation : moveStationsGraph.vertexSet()) {
+            if (moveStationsGraph.degreeOf(moveStation) == 0 ) {
+                isolatedStations.add(moveStation);
+            }
+        }
+        
+        // Remove from graph outside of iteration structure above
+        // to avoid ConcurrentModificationException
+        for (var isolatedStation : isolatedStations) {
+            moveStationsGraph.removeVertex(isolatedStation);
+        }
+        
+    }
+    
     // Create predefined set of points that the drone is allowed to fly to.
     // The campus map is divided into a pattern of equally distributed triangles.
     // The vertices of these triangles form the predefined set of points.
-    private Point[][] createMoveStationVertices() {
+    private Point[][] createMoveStationsGrid() {
 
         // Maximum and minimum lat and long values for campus boundary
-        final Double minLong = BOUNDARY_LONG_LATS[0];
-        final Double minLat = BOUNDARY_LONG_LATS[1];
-        final Double maxLong = BOUNDARY_LONG_LATS[2];
-        final Double maxLat = BOUNDARY_LONG_LATS[3];
+        final Double minLong = boundaryLongLats[0];
+        final Double minLat = boundaryLongLats[1];
+        final Double maxLong = boundaryLongLats[2];
+        final Double maxLat = boundaryLongLats[3];
 
         // Longitude and latitude length for campus map boundary
         final Double longDistance = Math.abs(maxLong-minLong);
         final Double latDistance = Math.abs(maxLat-minLat);
 
-        final double triangleHeight = Math.sqrt(Math.pow(MAX_DRONE_MOVE_DISTANCE,2)-Math.pow(MAX_DRONE_MOVE_DISTANCE/2.0,2));
+        final double triangleHeight = Math.sqrt(Math.pow(maxDroneMoveDistance,2)-Math.pow(maxDroneMoveDistance/2.0,2));
 
         // Shape for move stations matrix 
-        final int moveStationColumns = (int) Math.floor(longDistance / MAX_DRONE_MOVE_DISTANCE) + 1;
+        final int moveStationColumns = (int) Math.floor(longDistance / maxDroneMoveDistance) + 1;
         final int moveStationRows = (int) Math.floor(latDistance / triangleHeight) + 1;
 
-        Point[][] moveStations = new Point[moveStationRows][moveStationColumns];
+        var moveStations = new Point[moveStationRows][moveStationColumns];
 
         // Calculate the coordinates of each move station
         for (int i = 0 ; i < moveStationRows ; i++) {
             // Offset longitude every second row
-            Double offset = (i % 2) * MAX_DRONE_MOVE_DISTANCE/2.0;
+            Double offset = (i % 2) * maxDroneMoveDistance/2.0;
             for (int j = 0 ; j < moveStationColumns; j++) {
-                Double vertexLong = minLong + (j * MAX_DRONE_MOVE_DISTANCE) + offset;
+                Double vertexLong = minLong + (j * maxDroneMoveDistance) + offset;
                 // Ensure longitude is within boundary after offset
                 if (vertexLong > maxLong) {
                     vertexLong = maxLong;
@@ -251,32 +337,27 @@ public class DronePathFinder {
             }
         }
 
-       // Remove move stations that are within no fly zones or outside the boundary
-       return(removeInvalidMoveStations(moveStations));
+       return(setInvalidMoveStationsToNull(moveStations));
     }
     
-    private Point[][] removeInvalidMoveStations(Point[][] moveStations) {
+    // Set stations that are within no fly zones or outside the boundary to null
+    // Note function performs directly on moveStations input parameter
+    private Point[][] setInvalidMoveStationsToNull(Point[][] moveStations) {
 
-        // Set invalid move stations to null. Note function performs directly on moveStations input parameter
+        // Iterate over all move stations
         for (int i = 0; i < moveStations.length; i++) {
             for (int j = 0; j < moveStations[0].length; j++) {
                 for (var noFlyZone : noFlyZones) {
 
-                    // Create to Point2D object allow inter-operability with Path2D contains function.
+                    // Create to Point2D object for inter-operability with Path2D contains().
                     Point2D moveStation2D = new Point2D.Double(moveStations[i][j].longitude(), moveStations[i][j].latitude());
 
                     // Set move station to null if it is within a no fly zone
                     // TODO: contains condition will fail if move station is on the edge of a no fly zone
-                    // so need to ensure that this isnt the case??? define own contains function???
                     if (noFlyZone.contains(moveStation2D)) {
                         moveStations[i][j] = null;
                         break;
-                    } 
-//                    TODO delete this!!!
-//                    if (!this.campusboundary.contains(moveStation2D)) {
-//                        System.out.println("OUTSIDE:" + moveStation2D.getX() + "," + moveStation2D.getY());
-                          // this triggers but because contains condition fails if point is on the line...
-//                    }
+                    }
                 }
             }
         }
@@ -284,7 +365,7 @@ public class DronePathFinder {
         return moveStations;
     }
 
-    private void addMoveStationEdges(Graph<Point, DefaultEdge> moveStationsGraph, Point[][] moveStations) {
+    private void addMoveStationsGraphEdges(Graph<Point, DefaultEdge> moveStationsGraph, Point[][] moveStations) {
         // Add edges graph to connect move stations in an equilateral triangle pattern
         for (int i = 0; i < moveStations.length; i++) {
             for (int j = 0; j < moveStations[0].length - 1; j++) {
@@ -307,8 +388,17 @@ public class DronePathFinder {
                 }
             }
         }
-
+        
+        connectDroneStartLocation(moveStationsGraph, moveStations);
         removeInvalidMoveStationEdges(moveStationsGraph);
+    }
+    
+    private void connectDroneStartLocation(Graph<Point, DefaultEdge> moveStationsGraph, Point[][] moveStations) {
+        for (Point moveStation : moveStationsGraph.vertexSet()) {
+            if (Utilities.euclideanDistance(moveStation, droneStart.getLongLat()) < maxDroneMoveDistance) {
+                moveStationsGraph.addEdge(droneStart.getLongLat(), moveStation);
+            }
+        }
     }
     
     // Remove edges that are within no fly zones
@@ -373,32 +463,36 @@ public class DronePathFinder {
         
         var featuresList = new ArrayList<Feature>();
         
-        for (var moveStation : moveStationsGraph.vertexSet()) {
+        for (var moveStation : moveStationGraph.vertexSet()) {
             var moveStationFeature = Feature.fromGeometry(moveStation);
             featuresList.add(moveStationFeature);
         }
         
-        for (var edge : moveStationsGraph.edgeSet()) {
+        for (var edge : moveStationGraph.edgeSet()) {
             var edgeCoords = new ArrayList<Point>(2);
-            edgeCoords.add(moveStationsGraph.getEdgeSource(edge));
-            edgeCoords.add(moveStationsGraph.getEdgeTarget(edge));
+            edgeCoords.add(moveStationGraph.getEdgeSource(edge));
+            edgeCoords.add(moveStationGraph.getEdgeTarget(edge));
             LineString edgeLineString = LineString.fromLngLats(edgeCoords);
             Feature edgeFeature = Feature.fromGeometry(edgeLineString);
             featuresList.add(edgeFeature);
         }
         
-//        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
+        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
+        Utilities.writeFile("movestations.geojson", geojson);
         
         return featuresList;
     }
     
-    public ArrayList<Feature> sensorsGraphToGeojson() {
+    public String mustVisitGraphToGeojson() {
         
         var featuresList = new ArrayList<Feature>();
         
-        for (var sensor : sensorsGraph.vertexSet()) {
-            var moveStationFeature = sensor.getGeojsonFeature();
-            featuresList.add(moveStationFeature);
+        for (var mustVisit : mustVisitGraph.vertexSet()) {
+            if (Sensor.class.isInstance(mustVisit)) {
+                var sensorFeature = ((Sensor) mustVisit).getGeojsonFeature();
+                featuresList.add(sensorFeature);
+            }
+
         }
         
 //        for (var edge : sensorsGraph.edgeSet()) {
@@ -410,9 +504,9 @@ public class DronePathFinder {
 //            featuresList.add(edgeFeature);
 //        }
         
-//        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
-        
-        return featuresList;
+        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
+        Utilities.writeFile("sensors.geojson", geojson);
+        return geojson;
     }
     
 }
