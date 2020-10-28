@@ -104,9 +104,10 @@ public class HttpClientWrapper {
             // Use Java Reflection API to deserialize JSON into ArrayList of sensors
             Type sensorListType = new TypeToken<ArrayList<Sensor>>() {}.getType();
             sensors = new Gson().fromJson(response, sensorListType);
-        } catch (IOException | InterruptedException e) {
+        } catch (Exception e) {
+//        } catch (IOException | InterruptedException e) {TODO fix
             System.out.println("Failed to GET " + airQualityDataUrl +  " from WebServer:" + "\n" + e);
-            throw(e);
+//            throw(e);
             //            System.exit(1);
         }
 

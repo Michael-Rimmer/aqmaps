@@ -9,6 +9,7 @@ import java.util.List;
 
 import org.jgrapht.Graph;
 import org.jgrapht.GraphPath;
+import org.jgrapht.Graphs;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DefaultUndirectedGraph;
 import org.jgrapht.graph.DefaultWeightedEdge;
@@ -41,9 +42,8 @@ public class DronePathFinder {
     public ArrayList<MustVisitLocation> mustVisitLocations;
     private SimpleWeightedGraph<MustVisitLocation,DefaultWeightedEdge> mustVisitGraph;
     private List<MustVisitLocation> mustVisitTravelOrder; // TODO: map with must visit locations?
-    private ArrayList<DroneMove> droneMoves;
     
-    public DronePathFinder(MustVisitLocation droneStartingLocation, ArrayList<Sensor> sensors, Path2D[] noFlyZones, double[] boundaryLongLats, double maxDroneMoveDistance) {
+    public DronePathFinder(MustVisitLocation droneStartingLocation, ArrayList<Sensor> sensors, Path2D[] noFlyZones, double[] boundaryLongLats, double maxDroneMoveDistance) throws Exception {
         this.droneStart = droneStartingLocation;
         this.sensors = sensors;
         this.noFlyZones = noFlyZones;
@@ -55,9 +55,6 @@ public class DronePathFinder {
         this.moveStationGraph = createMoveStationGraph();
         this.mustVisitGraph = createMustVisitGraph();
         this.mustVisitTravelOrder = computeMustVisitTravelOrder();
-
-        this.droneMoves = computeDroneMoves();
-        mustVisitGraphToGeojson();
     }
     
     private ArrayList<MustVisitLocation> createMustVisitLocations() {
@@ -67,42 +64,30 @@ public class DronePathFinder {
         return mustVisitLocations;
     }
     
-    private ArrayList<DroneMove> computeDroneMoves() {
+    // For each pair of sensors, find the shortest move station path between them.
+    // Create a drone move for each edge in the path between them
+    public ArrayList<DroneMove> computeDroneMoves() throws Exception {
 
         var droneMoves = new ArrayList<DroneMove>();
 
-        // For each pair of sensors, find the shortest move station path between them
-        // Create a drone move for each edge in the path between them
-        // Note droneStart is skipped         
+        // Iterate over every pair of must visit locations
         for (int i = 0; i < mustVisitTravelOrder.size()-1; i++) {
+
+//            if (Sensor.class.isInstance(mustVisitTravelOrder.get(i))) {
+//                System.out.println(((Sensor) mustVisitTravelOrder.get(i)).getWordsLocation());
+//            }
+            
             var sourceMustVisit = mustVisitTravelOrder.get(i);
             var targetMustVisit = mustVisitTravelOrder.get(i+1);
 
             var shortestPath = computeShortestPathBetweenMoveStations(
                     sourceMustVisit.getClosestMoveStation(),
                     targetMustVisit.getClosestMoveStation());
-
-            // Create a drone move for each pair of move stations in the path between
-            // source and target must visit locations
-            for (int j = 0 ; j < shortestPath.getVertexList().size() - 1 ; j++) {
-
-                Point stationA = shortestPath.getVertexList().get(j);
-                Point stationB = shortestPath.getVertexList().get(j+1);
-
-                // Compute whether a drone move ends at a sensor
-                Sensor tempSensor = null;
-                if (stationB == targetMustVisit.getClosestMoveStation() 
-                        && Sensor.class.isInstance(targetMustVisit)) {
-                    targetMustVisit.setVisited(true);
-                    tempSensor = (Sensor) targetMustVisit;
-                }
-                
-                // Create DroneMove object and add to list
-                DroneMove tempDroneMove = new DroneMove(stationA, stationB, tempSensor);
-                droneMoves.add(tempDroneMove);
-            }
+            
+            createDroneMoveInstances(sourceMustVisit, targetMustVisit, shortestPath, droneMoves);
         }
         
+        checkDroneMovesValid(droneMoves);
 //        if(!checkDroneMovesValid(droneMoves)) {
 //            return computeDroneMoves();
 //        }
@@ -110,27 +95,117 @@ public class DronePathFinder {
         return droneMoves;
     }
     
-    private boolean checkDroneMovesValid(ArrayList<DroneMove> droneMoves) {
+    // TODO refine parameters, source not needed
+    // Create a drone move for each pair of move stations in the path between
+    // source and target must visit locations
+    private void createDroneMoveInstances(MustVisitLocation sourceMustVisit, MustVisitLocation targetMustVisit,
+            GraphPath<Point, DefaultEdge> shortestPath, ArrayList<DroneMove> droneMoves) {
         
-        if (droneMoves.size()>150) {
-            System.out.println("dronemoves too long: " + droneMoves.size());
-            return false;
+        var moveStationTravelOrder = shortestPath.getVertexList();
+        
+        // Corner case if sensors are accessible from same move station
+        if (moveStationTravelOrder.size() == 1) {
+            var commonMoveStation = moveStationTravelOrder.get(0);
+            var neighbourMoveStation = Graphs.neighborListOf(moveStationGraph, commonMoveStation).get(0);
+            
+            DroneMove droneMoveAwayFromCommonStation = new DroneMove(sourceMustVisit.getClosestMoveStation(), neighbourMoveStation, null);
+            droneMoves.add(droneMoveAwayFromCommonStation);
+            
+            // Determine if drone move finishes at a sensor
+            Sensor visitedSensor = checkIfSensorVisited(commonMoveStation, targetMustVisit);
+            
+            DroneMove droneMoveReturnToCommonStation = new DroneMove(neighbourMoveStation, commonMoveStation, visitedSensor);
+            droneMoves.add(droneMoveReturnToCommonStation);
+        }
+
+        // Iterate over every pair of move stations in the path 
+        // Won't run if corner case is True
+        for (int j = 0 ; j < moveStationTravelOrder.size() - 1 ; j++) {
+
+            Point stationA = moveStationTravelOrder.get(j);
+            Point stationB = moveStationTravelOrder.get(j+1);
+
+            // Determine if drone move finishes at a sensor
+            Sensor visitedSensor = checkIfSensorVisited(stationB, targetMustVisit);
+            
+            // Create new DroneMove
+            DroneMove tempDroneMove = new DroneMove(stationA, stationB, visitedSensor);
+            droneMoves.add(tempDroneMove);
+        }
+    }
+    
+    // Returns 
+    private Sensor checkIfSensorVisited(Point currentMoveStation, MustVisitLocation targetMustVisit) {
+        Sensor visitedSensor = null;
+        if (currentMoveStation == targetMustVisit.getClosestMoveStation() && Sensor.class.isInstance(targetMustVisit)) {
+            targetMustVisit.setVisited(true);
+            visitedSensor = (Sensor) targetMustVisit;
+        }
+        return visitedSensor;
+    }
+//    TODO DELETE THIS BELONGS TO DRONE
+    public String generateFlightPath(ArrayList<DroneMove> droneMoves) {
+        String flightPath = "";
+        String line = "";
+        int i = 1;
+        for (DroneMove move : droneMoves) {
+            
+            line = String.format("%s,%s\n", i, move.getMoveLog());
+            flightPath += line;
+            i++;
+        }
+        return flightPath;
+    }
+    // TODO DELETE
+    public String generateReadingsGeojson(ArrayList<DroneMove> droneMoves) {
+        
+        var featuresList = new ArrayList<Feature>();
+        var lineLongLats = new ArrayList<Point>(droneMoves.size());
+
+        for (DroneMove move : droneMoves) {
+                // Add drone flight as a single LineString
+                lineLongLats.add(move.getStartLongLat()); // warning this might cause bug cause only start lat long
         }
         
-        for (Sensor sensor : sensors) {
+        // Add line indicating drone flight path
+        LineString flightPathLine = LineString.fromLngLats(lineLongLats);
+        Feature flightPath = Feature.fromGeometry(flightPathLine);
+        flightPath.addStringProperty("name", "drone_flight_path");
+        featuresList.add(flightPath);
+        
+        for (var mustVisit : mustVisitGraph.vertexSet()) {
+            if (Sensor.class.isInstance(mustVisit)) {
+                var sensorFeature = ((Sensor) mustVisit).getGeojsonFeature();
+                featuresList.add(sensorFeature);
+            }
+        }
+        
+        // Convert list of features to features collection
+        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
+        return geojson;
+
+    }
+    
+    private boolean checkDroneMovesValid(ArrayList<DroneMove> droneMoves) throws Exception {
+        
+//        if (droneMoves.size()>150) {
+//            System.out.println("dronemoves too long: " + droneMoves.size());
+//            Utilities.writeFile(String.format("FAILED.txt"),generateFlightPath(droneMoves));
+//            throw new Exception("DRONE MOVES TOO LONG");
+//        }
+        
+        for (var sensor : sensors) {
             if(!sensor.getVisited()) {
                 System.out.println("SENSOR NOT VISITED : " + sensor.getWordsLocation() + "," + sensor.getClosestMoveStation());
-                return false;
+                Utilities.writeFile(String.format("FAILED-.txt"),generateFlightPath(droneMoves));
+                Utilities.writeFile(String.format("FAILED-.geojson"),generateReadingsGeojson(droneMoves));
+                throw new Exception("SENSOR NOT VISITED");
             }
         }
         
         return true;
     }
     
-    public ArrayList<DroneMove> getDroneMoves() {
-        return this.droneMoves;
-    }
-
     private List<MustVisitLocation> computeMustVisitTravelOrder() {
         // Instantiate path finder that will compute a closed loop of must visit locations with drone start as the first 
         // and last node
@@ -151,7 +226,7 @@ public class DronePathFinder {
     
     private void addMustVisitGraphEdges(SimpleWeightedGraph<MustVisitLocation,DefaultWeightedEdge> sensorsGraph) {
         // Add edges between every pair of sensors
-        // with weights determined by length of the shortest path between the two sensors
+       
         for (var mustVisitA: mustVisitLocations) {
             for (var mustVisitB: mustVisitLocations) {
                 // Check edge does not already exist
@@ -164,19 +239,10 @@ public class DronePathFinder {
         }
     }
     
+    
     private int computeMustVisitGraphEdgeWeight(MustVisitLocation a, MustVisitLocation b) {
-
-        var edgeLength = computeShortestPathBetweenMoveStations(a.getClosestMoveStation(), b.getClosestMoveStation()).getLength();
-        // TODO: possibly delete this due to inefficiency  alternative is to make a new station and move there and back
-        // Drone must move before each reading. Therefore,
-        // if sensors have identical move stations then return a high weight
-        // because this will 
-        if (edgeLength > 0) {
-            return edgeLength;
-        } else {
-            return 9999;
-        }
-
+        // Weights determined by length of the shortest path between closest move stations of the two sensors
+        return computeShortestPathBetweenMoveStations(a.getClosestMoveStation(), b.getClosestMoveStation()).getLength();
     }
     
     private SimpleWeightedGraph<MustVisitLocation, DefaultWeightedEdge> createMustVisitGraph() {
@@ -220,10 +286,6 @@ public class DronePathFinder {
             }
             
             mustVisit.setClosestMoveStation(closestStation);
-            if (!Sensor.class.isInstance(mustVisit)) {
-                System.out.println("DRONE CLOSEST MOVE STATION:");
-                System.out.println(mustVisit.getClosestMoveStation());
-            }
         }
     }
     
@@ -492,7 +554,6 @@ public class DronePathFinder {
                 var sensorFeature = ((Sensor) mustVisit).getGeojsonFeature();
                 featuresList.add(sensorFeature);
             }
-
         }
         
 //        for (var edge : sensorsGraph.edgeSet()) {
@@ -505,7 +566,6 @@ public class DronePathFinder {
 //        }
         
         String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
-        Utilities.writeFile("sensors.geojson", geojson);
         return geojson;
     }
     

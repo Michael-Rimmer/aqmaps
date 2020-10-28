@@ -45,16 +45,19 @@ public class Drone {
                 
         }
         
-        LineString flightPath = LineString.fromLngLats(lineLongLats);
+        // Add line indicating drone flight path
+        LineString flightPathLine = LineString.fromLngLats(lineLongLats);
+        Feature flightPath = Feature.fromGeometry(flightPathLine);
+        flightPath.addStringProperty("name", "drone_flight_path");
+        featuresList.add(flightPath);
+        
+        // Add campus boundary line
         featuresList.add(generateBoundaryLineFeature());
         
-        
+        // Convert list of features to features collection
         String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
         return geojson;
-        //        String fileName = String.format("flightpath-%s-%s-%s.txt", day, month, year)
-//        String fileName = String.format("readings-%s-%s-%s.geojson", day, month, year)
 
-//        Utilities.writeFile(fileName, geojson);
     }
     
     // generate Geojson for the outer line that surrounds the heatmap

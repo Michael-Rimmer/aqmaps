@@ -50,41 +50,44 @@ public class App
         System.out.println("DRONE START: " + Double.toString(droneStartingLong) + " " + Double.toString(droneStartingLat));
         MustVisitLocation droneStartingPoint = new MustVisitLocation(Point.fromLngLat(droneStartingLong, droneStartingLat));
 
-//        String[] years = {"2020", "2021"};
-//        String[] months = {"01", "02", "03", "04", "05", "06","07","08","09","10","11","12"};
-//        String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
+        String[] years = {"2020", "2021"};
+        String[] months = {"01", "02", "03", "04", "05", "06","07","08","09","10","11","12"};
+        String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
         
-        String[] years = {"2020"};
-        String[] months = {"01"};
-        String[] days = {"01"};
+//        String[] years = {"2020"};
+//        String[] months = {"01"};
+//        String[] days = {"25"};
         
         for (String year : years) {
             for (String month : months) {
                 for (String day : days) {
-//                    try {
-                        var sensors = clientWrapper.getAirQualityData(year, month, day);
+                    
+                    var sensors = clientWrapper.getAirQualityData(year, month, day);
 
-                        var dpf = new DronePathFinder(droneStartingPoint, sensors, noFlyZones, BOUNDARY_LONG_LATS, MAX_DRONE_MOVE_DISTANCE);
-        
-                        var droneMoves = dpf.getDroneMoves();
+                    var dpf = new DronePathFinder(droneStartingPoint, sensors, noFlyZones, BOUNDARY_LONG_LATS, MAX_DRONE_MOVE_DISTANCE);
+    
+                    
+                    try {
+                        var droneMoves = dpf.computeDroneMoves();
                         Drone drone = new Drone(droneMoves);
-                        String geojson = drone.generateReadingsGeojson();
+                        String readingsGeojson = drone.generateReadingsGeojson();
                         String flightPath = drone.generateFlightPath();
                         
                         String flightPathFileName = String.format("flightpath-%s-%s-%s.txt", day, month, year);
                         String readingsFileName = String.format("readings-%s-%s-%s.geojson", day, month, year);
 
-                        Utilities.writeFile(readingsFileName, geojson);
+                        Utilities.writeFile(readingsFileName, readingsGeojson);
                         Utilities.writeFile(flightPathFileName, flightPath);
                         
                         System.out.println(String.format("%s-%s-%s : ", day,month,year) + droneMoves.size());
                         
                         
-//                    } catch (Exception e) {
+                    } catch (Exception e) {
 //                        
-//                        System.out.println("FAILED TO GET " + String.format("%s-%s-%s", day,month,year));
-//                        break;
-//                    } finally {}
+                        System.out.println("FAILED: " + String.format("%s-%s-%s", day,month,year));
+                        System.out.println(e);
+                        break;
+                    } finally {}
                     
 
                 }
