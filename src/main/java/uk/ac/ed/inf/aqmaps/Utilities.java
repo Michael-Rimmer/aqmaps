@@ -31,4 +31,11 @@ public final class Utilities {
         // Computes Euclidean distance between two geojson point objects
         return Math.sqrt(Math.pow(a.longitude()-b.longitude(),2) + Math.pow(a.latitude()-b.latitude(),2));
     }
+    
+    public static MustVisitLocation createDroneStartPoint(String lng, String lat) {
+        double droneStartingLat = Double.parseDouble(lat);
+        double droneStartingLong = Double.parseDouble(lng);
+        var droneStartingPoint = new MustVisitLocation(Point.fromLngLat(droneStartingLong, droneStartingLat));
+        return droneStartingPoint;
+    }
 }

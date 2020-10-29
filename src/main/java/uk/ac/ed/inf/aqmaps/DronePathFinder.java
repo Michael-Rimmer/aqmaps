@@ -27,12 +27,12 @@ import com.mapbox.geojson.Point;
 // while avoiding no fly zones.
 public class DronePathFinder {
     
+    private final double[] boundaryLongLats;
+    private final double maxDroneMoveDistance;
     private final MustVisitLocation droneStart;
     public ArrayList<Sensor> sensors; // TODO: possibly get rid because already contained in mustvisitlocations
     public final Path2D[] noFlyZones;
-    private final double[] boundaryLongLats;
-    private final double maxDroneMoveDistance;
-    
+
     // Graph to store move stations and the paths between them
     // Each move station represented as geojson Point object to store its coordinates
     private Graph<Point,DefaultEdge> moveStationGraph;
@@ -55,6 +55,10 @@ public class DronePathFinder {
         this.moveStationGraph = createMoveStationGraph();
         this.mustVisitGraph = createMustVisitGraph();
         this.mustVisitTravelOrder = computeMustVisitTravelOrder();
+    }
+    
+    public Graph<Point,DefaultEdge> getMoveStationsGraph() {
+        return moveStationGraph;
     }
     
     private ArrayList<MustVisitLocation> createMustVisitLocations() {
@@ -365,21 +369,26 @@ public class DronePathFinder {
     // The vertices of these triangles form the predefined set of points.
     private Point[][] createMoveStationsGrid() {
 
+        // Delta subtracted or added to campus boundary values to ensure
+        // all move stations are strictly inside boundary
+        final Double latLongDelta = 0.0001;
+        
         // Maximum and minimum lat and long values for campus boundary
-        final Double minLong = boundaryLongLats[0];
-        final Double minLat = boundaryLongLats[1];
-        final Double maxLong = boundaryLongLats[2];
-        final Double maxLat = boundaryLongLats[3];
+        final Double minLong = boundaryLongLats[0] + latLongDelta;
+        final Double minLat = boundaryLongLats[1] + latLongDelta;
+        final Double maxLong = boundaryLongLats[2] - latLongDelta;
+        final Double maxLat = boundaryLongLats[3] - latLongDelta;
 
         // Longitude and latitude length for campus map boundary
         final Double longDistance = Math.abs(maxLong-minLong);
         final Double latDistance = Math.abs(maxLat-minLat);
 
-        final double triangleHeight = Math.sqrt(Math.pow(maxDroneMoveDistance,2)-Math.pow(maxDroneMoveDistance/2.0,2));
+        // Used to determine distance between each row of move stations in the grid
+        final double distanceBetweenRows = Math.sqrt(Math.pow(maxDroneMoveDistance,2)-Math.pow(maxDroneMoveDistance/2.0,2));
 
-        // Shape for move stations matrix 
+        // Compute shape for move stations matrix 
         final int moveStationColumns = (int) Math.floor(longDistance / maxDroneMoveDistance) + 1;
-        final int moveStationRows = (int) Math.floor(latDistance / triangleHeight) + 1;
+        final int moveStationRows = (int) Math.floor(latDistance / distanceBetweenRows) + 1;
 
         var moveStations = new Point[moveStationRows][moveStationColumns];
 
@@ -393,29 +402,30 @@ public class DronePathFinder {
                 if (vertexLong > maxLong) {
                     vertexLong = maxLong;
                 }
-                Double vertexLat = maxLat - i * triangleHeight;
+                Double vertexLat = maxLat - i * distanceBetweenRows;
                 Point vertex = Point.fromLngLat(vertexLong, vertexLat);
                 moveStations[i][j] = vertex;
             }
         }
 
-       return(setInvalidMoveStationsToNull(moveStations));
+       setInvalidMoveStationsToNull(moveStations);
+       return moveStations;
     }
     
-    // Set stations that are within no fly zones or outside the boundary to null
-    // Note function performs directly on moveStations input parameter
-    private Point[][] setInvalidMoveStationsToNull(Point[][] moveStations) {
+    // Invalid stations are those within no fly zones.
+    // Note function performs directly on moveStations input parameter.
+    private void setInvalidMoveStationsToNull(Point[][] moveStations) {
 
         // Iterate over all move stations
         for (int i = 0; i < moveStations.length; i++) {
             for (int j = 0; j < moveStations[0].length; j++) {
+                // Iterate over all no fly zones
                 for (var noFlyZone : noFlyZones) {
 
-                    // Create to Point2D object for inter-operability with Path2D contains().
+                    // Create Point2D object for inter-operability with Path2D contains().
                     Point2D moveStation2D = new Point2D.Double(moveStations[i][j].longitude(), moveStations[i][j].latitude());
 
-                    // Set move station to null if it is within a no fly zone
-                    // TODO: contains condition will fail if move station is on the edge of a no fly zone
+                    // Set move station to null if it is strictly inside a no fly zone
                     if (noFlyZone.contains(moveStation2D)) {
                         moveStations[i][j] = null;
                         break;
@@ -423,8 +433,6 @@ public class DronePathFinder {
                 }
             }
         }
-
-        return moveStations;
     }
 
     private void addMoveStationsGraphEdges(Graph<Point, DefaultEdge> moveStationsGraph, Point[][] moveStations) {

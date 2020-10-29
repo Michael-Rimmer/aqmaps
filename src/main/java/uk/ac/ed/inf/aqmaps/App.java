@@ -36,27 +36,26 @@ import com.mapbox.geojson.LineString;
  */
 public class App 
 {
+ // Declare constants
+    public static double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
+    public static double MAX_DRONE_MOVE_DISTANCE = 0.0003;
+    
     public static void main( String[] args ) throws Exception
     {
-        // Declare constants
-        double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
-        double MAX_DRONE_MOVE_DISTANCE = 0.0003;
+        
         
         HttpClientWrapper clientWrapper = new HttpClientWrapper("80");
         
         var noFlyZones = clientWrapper.getNoFlyZones();
-        double droneStartingLat = Double.parseDouble(args[3]);
-        double droneStartingLong = Double.parseDouble(args[4]);
-        System.out.println("DRONE START: " + Double.toString(droneStartingLong) + " " + Double.toString(droneStartingLat));
-        MustVisitLocation droneStartingPoint = new MustVisitLocation(Point.fromLngLat(droneStartingLong, droneStartingLat));
+        var droneStart = Utilities.createDroneStartPoint(args[4], args[3]);
 
-        String[] years = {"2020", "2021"};
+//        String[] years = {"2020", "2021"};
         String[] months = {"01", "02", "03", "04", "05", "06","07","08","09","10","11","12"};
-        String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
+//        String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
         
-//        String[] years = {"2020"};
+        String[] years = {"2020"};
 //        String[] months = {"01"};
-//        String[] days = {"25"};
+        String[] days = {"01"};
         
         for (String year : years) {
             for (String month : months) {
@@ -64,7 +63,7 @@ public class App
                     
                     var sensors = clientWrapper.getAirQualityData(year, month, day);
 
-                    var dpf = new DronePathFinder(droneStartingPoint, sensors, noFlyZones, BOUNDARY_LONG_LATS, MAX_DRONE_MOVE_DISTANCE);
+                    var dpf = new DronePathFinder(droneStart, sensors, noFlyZones, BOUNDARY_LONG_LATS, MAX_DRONE_MOVE_DISTANCE);
     
                     
                     try {
@@ -83,11 +82,10 @@ public class App
                         
                         
                     } catch (Exception e) {
-//                        
-                        System.out.println("FAILED: " + String.format("%s-%s-%s", day,month,year));
+                        System.out.println("ERROR: Failed to fly drone on day: " + String.format("%s-%s-%s", day,month,year));
                         System.out.println(e);
                         break;
-                    } finally {}
+                    }
                     
 
                 }
