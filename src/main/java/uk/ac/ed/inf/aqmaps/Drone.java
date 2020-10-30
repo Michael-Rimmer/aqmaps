@@ -7,46 +7,55 @@ import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 
+// Class to represent drone that flies around campus
+// Responsible for generating flight path and readings output
 public class Drone {
 
     private final ArrayList<DroneMove> droneMoves;
+    private final String flightPathFileName;
+    private final String readingsFileName;
     
-    public Drone(ArrayList<DroneMove> droneMoves) {
+    public Drone(ArrayList<DroneMove> droneMoves, String day, String month, String year) {
         this.droneMoves = droneMoves;
+        this.flightPathFileName = String.format("flightpath-%s-%s-%s.txt", day, month, year);
+        this.readingsFileName = String.format("readings-%s-%s-%s.geojson", day, month, year);
     }
     
-    public String generateFlightPath() {
+    public void generateFlightPath() {
         String flightPath = "";
         String line = "";
+        
+        // Iterate each move and append its log string
         int i = 1;
         for (DroneMove move : droneMoves) {
-            
             line = String.format("%s,%s\n", i, move.getMoveLog());
             flightPath += line;
             i++;
         }
-        return flightPath;
+
+        Utilities.writeFile(flightPathFileName, flightPath);
     }
     
-    public String generateReadingsGeojson() {
+    public void generateReadingsGeojson() {
         
         var featuresList = new ArrayList<Feature>();
-        var lineLongLats = new ArrayList<Point>(droneMoves.size());
-
+        var flightPathCoords = new ArrayList<Point>(droneMoves.size());
+        
         for (DroneMove move : droneMoves) {
-                // Add drone flight as a single LineString
-                lineLongLats.add(move.getStartLongLat()); // warning this might cause bug cause only start lat long
+                flightPathCoords.add(move.getStartLongLat());
 
-                // Add sensor
+                // Add sensor to features list
                 Sensor tempSensor = move.getSensor();
                 if (tempSensor != null) {
                     featuresList.add(tempSensor.getGeojsonFeature());
                 }
-                
         }
-        
+
+        var lastMove = droneMoves.get(droneMoves.size()-1);
+        flightPathCoords.add(lastMove.getEndLongLat());
+
         // Add line indicating drone flight path
-        LineString flightPathLine = LineString.fromLngLats(lineLongLats);
+        LineString flightPathLine = LineString.fromLngLats(flightPathCoords);
         Feature flightPath = Feature.fromGeometry(flightPathLine);
         flightPath.addStringProperty("name", "drone_flight_path");
         featuresList.add(flightPath);
@@ -56,18 +65,24 @@ public class Drone {
         
         // Convert list of features to features collection
         String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
-        return geojson;
 
+        Utilities.writeFile(readingsFileName, geojson);
     }
     
-    // generate Geojson for the outer line that surrounds the heatmap
+    // Generate Geojson for the outer line that surrounds the heatmap
     public static Feature generateBoundaryLineFeature() {
         var boundaryCoords = new ArrayList<Point>(5);
-        final double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
-        Point bottomLeftCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[0], BOUNDARY_LONG_LATS[1]);
-        Point topRightCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[2], BOUNDARY_LONG_LATS[3]);
-        Point topLeftCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[0], BOUNDARY_LONG_LATS[3]);
-        Point bottomRightCoord = Point.fromLngLat(BOUNDARY_LONG_LATS[2], BOUNDARY_LONG_LATS[1]);
+        
+        Double minLong = App.BOUNDARY_LONG_LATS.get("minLong");
+        Double minLat = App.BOUNDARY_LONG_LATS.get("minLat");
+        Double maxLong = App.BOUNDARY_LONG_LATS.get("maxLong");
+        Double maxLat = App.BOUNDARY_LONG_LATS.get("maxLat");
+        
+        // Compute coordinates from min/max long/lat values
+        Point bottomLeftCoord = Point.fromLngLat(minLong, minLat);
+        Point topRightCoord = Point.fromLngLat(maxLong, maxLat);
+        Point topLeftCoord = Point.fromLngLat(minLong, maxLat);
+        Point bottomRightCoord = Point.fromLngLat(maxLong, minLat);
         boundaryCoords.add(topLeftCoord);
         boundaryCoords.add(topRightCoord);
         boundaryCoords.add(bottomRightCoord);

@@ -5,12 +5,8 @@ import static org.junit.Assert.assertTrue;
 import java.awt.geom.Path2D;
 import java.util.ArrayList;
 
-import org.jgrapht.Graph;
-import org.jgrapht.graph.DefaultEdge;
 import org.junit.Before;
 import org.junit.Test;
-
-import com.mapbox.geojson.Point;
 
 public class DronePathFinderTest {
     
@@ -41,7 +37,7 @@ public class DronePathFinderTest {
         clientWrapper = new HttpClientWrapper(httpPort);
         noFlyZones = clientWrapper.getNoFlyZones();
         sensors = clientWrapper.getAirQualityData(year, month, day);
-        dpf = new DronePathFinder(droneStart, sensors, noFlyZones, App.BOUNDARY_LONG_LATS, App.MAX_DRONE_MOVE_DISTANCE);
+        dpf = new DronePathFinder(droneStart, sensors, noFlyZones);
 
         setUpComplete = true;
     }
@@ -50,10 +46,10 @@ public class DronePathFinderTest {
     public void testAllMoveStationLatsWithinBoundary()
     {
         // maximum and minimum lat values for campus boundary
-        final Double minLat = App.BOUNDARY_LONG_LATS[1];
-        final Double maxLat = App.BOUNDARY_LONG_LATS[3];
+        final Double minLat = App.BOUNDARY_LONG_LATS.get("minLat");
+        final Double maxLat = App.BOUNDARY_LONG_LATS.get("maxLat");
 
-        var moveStationsGraph = dpf.getMoveStationsGraph();
+        var moveStationsGraph = dpf.getMoveStationGraph();
         for (var vertex : moveStationsGraph.vertexSet()) {
             // must be strictly inside the boundary
             assertTrue( vertex.latitude() > minLat && vertex.latitude() < maxLat);
@@ -64,10 +60,10 @@ public class DronePathFinderTest {
     public void testAllMoveStationLongsWithinBoundary()
     {
         // maximum and minimum long values for campus boundary
-        final Double minLong = App.BOUNDARY_LONG_LATS[0];
-        final Double maxLong = App.BOUNDARY_LONG_LATS[2];
+        final Double minLong = App.BOUNDARY_LONG_LATS.get("minLong");
+        final Double maxLong = App.BOUNDARY_LONG_LATS.get("maxLong");
         
-        var moveStationsGraph = dpf.getMoveStationsGraph();
+        var moveStationsGraph = dpf.getMoveStationGraph();
         for (var vertex : moveStationsGraph.vertexSet()) {
             // must be strictly inside the boundary
             assertTrue( vertex.longitude() > minLong && vertex.longitude() < maxLong);

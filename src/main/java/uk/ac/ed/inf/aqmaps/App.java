@@ -1,97 +1,79 @@
 package uk.ac.ed.inf.aqmaps;
 
-import java.io.IOException;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-
-// used for graph demo
-import org.jgrapht.*;
-import org.jgrapht.graph.*;
-import org.jgrapht.alg.tour.NearestNeighborHeuristicTSP;
-import org.jgrapht.nio.*;
-import org.jgrapht.nio.dot.*;
-import org.jgrapht.traverse.*;
-
-import java.awt.Polygon;
-import java.awt.geom.Path2D;
-import java.io.*;
-import java.net.*;
-import java.util.*;
-
-import com.mapbox.geojson.Point;
-import com.google.gson.Gson;
-import java.lang.reflect.Type;
-import com.google.gson.reflect.TypeToken;
-import com.mapbox.geojson.Feature;
-import com.mapbox.geojson.FeatureCollection;
-import com.mapbox.geojson.LineString;
+import java.util.HashMap;
 
 /**
  * Hello world!
  *
  */
+@SuppressWarnings("serial")
 public class App 
 {
- // Declare constants
-    public static double[] BOUNDARY_LONG_LATS = {-3.192473, 55.942617, -3.184319, 55.946233};
-    public static double MAX_DRONE_MOVE_DISTANCE = 0.0003;
-    
+    // Declare constants
+    public static final double MAX_DRONE_MOVE_DISTANCE = 0.0003;
+    public static final HashMap<String,Double> BOUNDARY_LONG_LATS = new HashMap<String,Double>() {{
+        put("minLong", -3.192473);
+        put("minLat", 55.942617);
+        put("maxLong", -3.184319);
+        put("maxLat", 55.946233);
+     }};
+
     public static void main( String[] args ) throws Exception
     {
+        System.out.println("-----------------------------------------------");
+        // Parse command line args
+        Utilities.validateArgs(args);
         
+//        String day = args[0];
+//        String month = args[1];
+//        String year = args[2];
+        String lat = args[3];
+        String lng = args[4];
+        String httpPort = args[6];
         
-        HttpClientWrapper clientWrapper = new HttpClientWrapper("80");
+        var droneStart = Utilities.createDroneStartPoint(lng, lat);
+        
+        HttpClientWrapper clientWrapper = new HttpClientWrapper(httpPort);
         
         var noFlyZones = clientWrapper.getNoFlyZones();
-        var droneStart = Utilities.createDroneStartPoint(args[4], args[3]);
 
-//        String[] years = {"2020", "2021"};
+        String[] years = {"2020", "2021"};
         String[] months = {"01", "02", "03", "04", "05", "06","07","08","09","10","11","12"};
-//        String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
+        String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
         
-        String[] years = {"2020"};
+//        String[] years = {"2020"};
 //        String[] months = {"01"};
-        String[] days = {"01"};
+//        String[] days = {"01"};
         
         for (String year : years) {
             for (String month : months) {
                 for (String day : days) {
-                    
-                    var sensors = clientWrapper.getAirQualityData(year, month, day);
-
-                    var dpf = new DronePathFinder(droneStart, sensors, noFlyZones, BOUNDARY_LONG_LATS, MAX_DRONE_MOVE_DISTANCE);
-    
-                    
                     try {
-                        var droneMoves = dpf.computeDroneMoves();
-                        Drone drone = new Drone(droneMoves);
-                        String readingsGeojson = drone.generateReadingsGeojson();
-                        String flightPath = drone.generateFlightPath();
                         
-                        String flightPathFileName = String.format("flightpath-%s-%s-%s.txt", day, month, year);
-                        String readingsFileName = String.format("readings-%s-%s-%s.geojson", day, month, year);
+                        // Get air quality readings for given date
+                        var sensors = clientWrapper.getAirQualityData(year, month, day);
+    
+                        // Compute drone flight path
+                        var dpf = new DronePathFinder(droneStart, sensors, noFlyZones);
+                        var droneMoves = dpf.getDroneMoves();
+                        
+                        // Instantiate drone with movement instructions
+                        Drone drone = new Drone(droneMoves, day, month, year);
+                        
+                        // Generate output
+                        drone.generateReadingsGeojson();
+                        drone.generateFlightPath();
 
-                        Utilities.writeFile(readingsFileName, readingsGeojson);
-                        Utilities.writeFile(flightPathFileName, flightPath);
-                        
-                        System.out.println(String.format("%s-%s-%s : ", day,month,year) + droneMoves.size());
-                        
-                        
+                        System.out.println("-----------------------------------------------");
                     } catch (Exception e) {
-                        System.out.println("ERROR: Failed to fly drone on day: " + String.format("%s-%s-%s", day,month,year));
+                        System.out.println("ERROR: Failed to fly drone on day: " + String.format("%s-%s-%s.", day,month,year));
                         System.out.println(e);
                         break;
                     }
-                    
-
                 }
             }
         }
+
     }
-    
 
 }

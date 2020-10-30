@@ -1,16 +1,10 @@
 package uk.ac.ed.inf.aqmaps;
 
-import java.util.ArrayList;
-
-import org.jgrapht.GraphPath;
-import org.jgrapht.graph.DefaultEdge;
-
-import com.mapbox.geojson.Feature;
-import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 
+// Class to represent a single drone move from one point to another
+// Sensor instance stores a Sensor only if the drone move ends close to the Sensor
 public class DroneMove {
-    
     private final Point startLongLat;
     private final Point endLongLat;
     private final Sensor sensor;
@@ -25,12 +19,17 @@ public class DroneMove {
         return startLongLat;
     }
     
+    public Point getEndLongLat() {
+        return endLongLat;
+    }
+    
     public Sensor getSensor() {
         return sensor;
     }
     
+    // Returns formatted string used to generate flightpath file
     public String getMoveLog() {
-        
+        // TODO check if should be null or blank?
         String sensorLocation = (sensor == null) ? null : sensor.getWordsLocation();
         
         String moveLog = String.format("%s,%s,%s,%s,%s", 
@@ -43,19 +42,4 @@ public class DroneMove {
 
         return moveLog;
     }
-    
-//    public ArrayList<Feature> getGeojsonFeature() {
-//        var featureList = new ArrayList<Feature>(2);
-//        
-//        Feature droneFlight = GeojsonUtilities.createLineStringFeature(startLongLat, endLongLat);
-//        featureList.add(droneFlight);
-//                
-//        Feature sensorFeature = null;
-//        if (sensor != null) {
-//            sensorFeature = sensor.getGeojsonFeature();
-//            featureList.add(sensorFeature);
-//        }
-//        
-//        return featureList;
-//    }
 }

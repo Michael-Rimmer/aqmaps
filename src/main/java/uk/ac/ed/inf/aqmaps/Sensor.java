@@ -1,17 +1,15 @@
 package uk.ac.ed.inf.aqmaps;
 
 import com.mapbox.geojson.Feature;
-import com.mapbox.geojson.Point;
 
 // Class representing a single Sensor.
 public class Sensor extends MustVisitLocation {
+
     private String location;
     private float battery;
-
-    // set reading as String because value may be "null"
+    // Set reading as String because value may be "null"
     private String reading;
 
-    
     public Sensor (String wordsLocation, float battery, String reading) {
         super();
         this.location = wordsLocation;
@@ -19,7 +17,6 @@ public class Sensor extends MustVisitLocation {
         this.reading = reading;
     }
 
-    
     public float getReadingAsFloat() {
         try {
             return Float.parseFloat(this.reading);
@@ -28,7 +25,7 @@ public class Sensor extends MustVisitLocation {
             return -1;
         }
     }
-    
+
     private String getMarkerColor() {
         String markerColor = "";
 
@@ -54,7 +51,7 @@ public class Sensor extends MustVisitLocation {
         
         if (battery < 10) markerColor = "#000000";
         
-        if (!visited) markerColor = "#aaaaaa";
+        if (!getVisited()) markerColor = "#aaaaaa";
 
         return markerColor;
     }
@@ -72,7 +69,7 @@ public class Sensor extends MustVisitLocation {
         
         if (battery < 10) markerSymbol = "cross";
         
-        if (!visited) markerSymbol = "";
+        if (!getVisited()) markerSymbol = "";
 
         return markerSymbol;
     }
@@ -90,7 +87,7 @@ public class Sensor extends MustVisitLocation {
     }
     
     public Feature getGeojsonFeature() {
-        Feature sensorFeature = Feature.fromGeometry(longLat);
+        Feature sensorFeature = Feature.fromGeometry(getLongLat());
         sensorFeature.addStringProperty("location", location);
         sensorFeature.addStringProperty("rbg-string", getMarkerColor());
         sensorFeature.addStringProperty("marker-color", getMarkerColor());
