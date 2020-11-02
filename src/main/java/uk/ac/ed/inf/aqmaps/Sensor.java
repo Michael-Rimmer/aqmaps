@@ -5,10 +5,10 @@ import com.mapbox.geojson.Feature;
 // Class representing a single Sensor.
 public class Sensor extends MustVisitLocation {
 
-    private String location;
-    private float battery;
+    private final String location;
+    private final float battery;
     // Set reading as String because value may be "null"
-    private String reading;
+    private final String reading;
 
     public Sensor (String wordsLocation, float battery, String reading) {
         super();
@@ -17,7 +17,10 @@ public class Sensor extends MustVisitLocation {
         this.reading = reading;
     }
 
-    public float getReadingAsFloat() {
+    // Convert reading from string to float
+    // Required due to Java Reflection API used to
+    // deserialise json
+    private float getReadingAsFloat() {
         try {
             return Float.parseFloat(this.reading);
         } catch (NumberFormatException e) {
@@ -55,7 +58,7 @@ public class Sensor extends MustVisitLocation {
 
         return markerColor;
     }
-    
+
     private String getMarkerSymbol() {
 
         float reading = getReadingAsFloat();
@@ -77,15 +80,7 @@ public class Sensor extends MustVisitLocation {
     public String getWordsLocation() {
         return this.location;
     }
-    
-    public String getReading() {
-        return this.reading;
-    }
-    
-    public float getBattery() {
-        return this.battery;
-    }
-    
+
     public Feature getGeojsonFeature() {
         Feature sensorFeature = Feature.fromGeometry(getLongLat());
         sensorFeature.addStringProperty("location", location);

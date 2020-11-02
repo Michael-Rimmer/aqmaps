@@ -34,8 +34,8 @@ public final class Utilities {
     
     // Returns a MustVisitLocation object with longitude and latitude values initialised as provided
     public static MustVisitLocation createDroneStartPoint(String lng, String lat) {
-        double droneStartingLat = Double.parseDouble(lat);
-        double droneStartingLong = Double.parseDouble(lng);
+        final double droneStartingLat = Double.parseDouble(lat);
+        final double droneStartingLong = Double.parseDouble(lng);
         var droneStartingPoint = new MustVisitLocation(Point.fromLngLat(droneStartingLong, droneStartingLat));
         return droneStartingPoint;
     }

@@ -51,7 +51,7 @@ public class MustVisitLocation {
 
         double distance = Utilities.euclideanDistance(getLongLat(), moveStation);
 
-        if (distance < App.MAX_DRONE_MOVE_DISTANCE) {
+        if (distance < App.CLOSE_ENOUGH_DISTANCE) {
             return true;
         }
 

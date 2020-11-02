@@ -34,7 +34,7 @@ public class HttpClientWrapper {
     // Get no-fly-zones geojson from HTTP server and format into a list of Path2D objects
     public Path2D[] getNoFlyZones() throws Exception {
         // Build HTTP request
-        String noFlyZonesUrl = baseUrl + noFlyZonesPath;
+        final String noFlyZonesUrl = baseUrl + noFlyZonesPath;
         var request = HttpRequest.newBuilder()
               .uri(URI.create(noFlyZonesUrl))
               .build();
@@ -103,7 +103,7 @@ public class HttpClientWrapper {
         var sensors = new ArrayList<Sensor>();
 
         // Build HTTP request
-        String airQualityDataUrl = baseUrl+String.format(mapsPathTemplate, year, month, day);
+        final String airQualityDataUrl = baseUrl+String.format(mapsPathTemplate, year, month, day);
         var request = HttpRequest.newBuilder()
               .uri(URI.create(airQualityDataUrl))
               .build();

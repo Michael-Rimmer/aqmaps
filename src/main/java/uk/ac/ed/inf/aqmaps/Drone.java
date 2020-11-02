@@ -21,6 +21,7 @@ public class Drone {
         this.readingsFileName = String.format("readings-%s-%s-%s.geojson", day, month, year);
     }
     
+    // Generate .txt file describing each drone move
     public void generateFlightPath() {
         String flightPath = "";
         String line = "";
@@ -36,6 +37,8 @@ public class Drone {
         Utilities.writeFile(flightPathFileName, flightPath);
     }
     
+    // Generate .geojson file illustrating each drone flight
+    // and readings of sensors
     public void generateReadingsGeojson() {
         
         var featuresList = new ArrayList<Feature>();
@@ -51,12 +54,12 @@ public class Drone {
                 }
         }
 
-        var lastMove = droneMoves.get(droneMoves.size()-1);
+        final var lastMove = droneMoves.get(droneMoves.size()-1);
         flightPathCoords.add(lastMove.getEndLongLat());
 
         // Add line indicating drone flight path
-        LineString flightPathLine = LineString.fromLngLats(flightPathCoords);
-        Feature flightPath = Feature.fromGeometry(flightPathLine);
+        final LineString flightPathLine = LineString.fromLngLats(flightPathCoords);
+        final Feature flightPath = Feature.fromGeometry(flightPathLine);
         flightPath.addStringProperty("name", "drone_flight_path");
         featuresList.add(flightPath);
         
@@ -64,33 +67,33 @@ public class Drone {
         featuresList.add(generateBoundaryLineFeature());
         
         // Convert list of features to features collection
-        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
+        final String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
 
         Utilities.writeFile(readingsFileName, geojson);
     }
     
     // Generate Geojson for the outer line that surrounds the heatmap
-    public static Feature generateBoundaryLineFeature() {
+    private static Feature generateBoundaryLineFeature() {
         var boundaryCoords = new ArrayList<Point>(5);
         
-        Double minLong = App.BOUNDARY_LONG_LATS.get("minLong");
-        Double minLat = App.BOUNDARY_LONG_LATS.get("minLat");
-        Double maxLong = App.BOUNDARY_LONG_LATS.get("maxLong");
-        Double maxLat = App.BOUNDARY_LONG_LATS.get("maxLat");
+        final Double minLong = App.BOUNDARY_LONG_LATS.get("minLong");
+        final Double minLat = App.BOUNDARY_LONG_LATS.get("minLat");
+        final Double maxLong = App.BOUNDARY_LONG_LATS.get("maxLong");
+        final Double maxLat = App.BOUNDARY_LONG_LATS.get("maxLat");
         
         // Compute coordinates from min/max long/lat values
-        Point bottomLeftCoord = Point.fromLngLat(minLong, minLat);
-        Point topRightCoord = Point.fromLngLat(maxLong, maxLat);
-        Point topLeftCoord = Point.fromLngLat(minLong, maxLat);
-        Point bottomRightCoord = Point.fromLngLat(maxLong, minLat);
+        final Point bottomLeftCoord = Point.fromLngLat(minLong, minLat);
+        final Point topRightCoord = Point.fromLngLat(maxLong, maxLat);
+        final Point topLeftCoord = Point.fromLngLat(minLong, maxLat);
+        final Point bottomRightCoord = Point.fromLngLat(maxLong, minLat);
         boundaryCoords.add(topLeftCoord);
         boundaryCoords.add(topRightCoord);
         boundaryCoords.add(bottomRightCoord);
         boundaryCoords.add(bottomLeftCoord);
         boundaryCoords.add(topLeftCoord);
 
-        LineString boundaryLineString = LineString.fromLngLats(boundaryCoords);
-        Feature heatmapFeature = Feature.fromGeometry(boundaryLineString);
+        final LineString boundaryLineString = LineString.fromLngLats(boundaryCoords);
+        final Feature heatmapFeature = Feature.fromGeometry(boundaryLineString);
         heatmapFeature.addStringProperty("name", "heatmap_boundary");
 
         return heatmapFeature;

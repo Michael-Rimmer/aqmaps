@@ -32,7 +32,7 @@ public class DroneMove {
         // TODO check if should be null or blank?
         String sensorLocation = (sensor == null) ? null : sensor.getWordsLocation();
         
-        String moveLog = String.format("%s,%s,%s,%s,%s", 
+        final String moveLog = String.format("%s,%s,%s,%s,%s", 
                 startLongLat.longitude(),
                 startLongLat.latitude(),
                 endLongLat.longitude(),

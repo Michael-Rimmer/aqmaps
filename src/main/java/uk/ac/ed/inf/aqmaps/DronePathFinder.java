@@ -58,6 +58,7 @@ public class DronePathFinder {
         computeMustVisitTravelOrder();
     }
 
+    // Protected for testing
     protected Graph<Point, DefaultEdge> getMoveStationGraph() {
         return moveStationGraph;
     }
@@ -307,8 +308,6 @@ public class DronePathFinder {
     // Move stations are distributed across campus map in an equilateral triangle pattern.
     // This means drone is constrained to move in directions that are multiples of 60 degrees: 0, 60, 120, 240, 300
     private void createMoveStationGraph() {
-
-        this.moveStationGraph = new DefaultUndirectedGraph<>(DefaultEdge.class);
 
         Point[][] moveStationGrid = createMoveStationsGrid();
         addMoveStationGraphVertices(moveStationGrid);
