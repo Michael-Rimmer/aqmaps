@@ -6,11 +6,11 @@ import com.mapbox.geojson.Feature;
 public class Sensor extends MustVisitLocation {
 
     private final String location;
-    private final float battery;
-    // Set reading as String because value may be "null"
+    private final Float battery;
+    // reading type String because value may be "null"
     private final String reading;
 
-    public Sensor (String wordsLocation, float battery, String reading) {
+    public Sensor (String wordsLocation, Float battery, String reading) {
         super();
         this.location = wordsLocation;
         this.battery = battery;
@@ -20,12 +20,12 @@ public class Sensor extends MustVisitLocation {
     // Convert reading from string to float
     // Required due to Java Reflection API used to
     // deserialise json
-    private float getReadingAsFloat() {
+    private Float getReadingAsFloat() {
         try {
             return Float.parseFloat(this.reading);
         } catch (NumberFormatException e) {
             // Case when reading = "null"
-            return -1;
+            return (float) -1.0;
         }
     }
 

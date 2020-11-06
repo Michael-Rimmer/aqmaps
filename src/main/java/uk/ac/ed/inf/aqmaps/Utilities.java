@@ -7,10 +7,7 @@ import java.nio.file.StandardOpenOption;
 
 import com.mapbox.geojson.Point;
 
-/**
- * Utilities class contains helper functions for the main App.
- */
-
+// Class containing helper functions used throughout package
 public final class Utilities {
 
     // Delete file if it exists then write file with provided content parameter
@@ -22,22 +19,14 @@ public final class Utilities {
             Files.writeString(file, (CharSequence) content, StandardOpenOption.CREATE);
             System.out.println("Created file: " + filePath);
         } catch (IOException e) {
-            System.out.println("Error occured during writing of file: " + filePath + "\n" + e);
+            System.err.println("Error occured during writing of file: " + filePath + "\n" + e);
             System.exit(1);
         }
     }
     
     // Computes Euclidean distance between two geojson point objects
-    public static double euclideanDistance(Point a, Point b) {
+    public static Double euclideanDistance(Point a, Point b) {
         return Math.sqrt(Math.pow(a.longitude()-b.longitude(),2) + Math.pow(a.latitude()-b.latitude(),2));
-    }
-    
-    // Returns a MustVisitLocation object with longitude and latitude values initialised as provided
-    public static MustVisitLocation createDroneStartPoint(String lng, String lat) {
-        final double droneStartingLat = Double.parseDouble(lat);
-        final double droneStartingLong = Double.parseDouble(lng);
-        var droneStartingPoint = new MustVisitLocation(Point.fromLngLat(droneStartingLong, droneStartingLat));
-        return droneStartingPoint;
     }
     
     // Validate command line arguments
@@ -56,10 +45,10 @@ public final class Utilities {
         System.out.println("Command line arguments are valid.");
     }
     
-    private static void validateDate(String dayAsString, String monthAsString, String yearAsString) throws IllegalArgumentException {
-        int day = Integer.parseInt(dayAsString);
-        int month = Integer.parseInt(monthAsString);
-        int year = Integer.parseInt(yearAsString);
+    private static void validateDate(String dayString, String monthString, String yearString) throws IllegalArgumentException {
+        int day = Integer.parseInt(dayString);
+        int month = Integer.parseInt(monthString);
+        int year = Integer.parseInt(yearString);
         
         if (day < 1 || day > 31 || 
                 month < 1 || month > 12 ||
@@ -68,9 +57,9 @@ public final class Utilities {
         }
     }
     
-    private static void validateLatLong(String latAsString, String longAsString) {
+    private static void validateLatLong(String latString, String longString) throws IllegalArgumentException {
         // Ensure lat and long within boundaries
-        double lat = Double.parseDouble(latAsString);
+        double lat = Double.parseDouble(latString);
         if (lat < App.BOUNDARY_LONG_LATS.get("minLat") || lat > App.BOUNDARY_LONG_LATS.get("maxLat")) {
             throw new IllegalArgumentException(
                     String.format("ERROR: Expecting latitude strictly between %s-%s. You entered: %s", 
@@ -80,7 +69,7 @@ public final class Utilities {
                             ));
         }
         
-        double lng = Double.parseDouble(longAsString);
+        double lng = Double.parseDouble(longString);
         if (lng < App.BOUNDARY_LONG_LATS.get("minLong") || lng > App.BOUNDARY_LONG_LATS.get("maxLong")) {
             throw new IllegalArgumentException(
                     String.format("ERROR: Expecting longitude strictly between %s-%s. You entered: %s", 

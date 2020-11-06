@@ -7,12 +7,12 @@ import com.mapbox.geojson.Point;
 public class DroneMove {
     private final Point startLongLat;
     private final Point endLongLat;
-    private final Sensor sensor;
+    private Sensor sensor;
 
-    public DroneMove(Point startLongLat, Point endLongLat, Sensor sensor) {
+    public DroneMove(Point startLongLat, Point endLongLat, MustVisitLocation mustVisit) {
         this.startLongLat = startLongLat;
         this.endLongLat = endLongLat;
-        this.sensor = sensor;
+        setSensor(mustVisit);
     }
     
     public Point getStartLongLat() {
@@ -29,7 +29,6 @@ public class DroneMove {
     
     // Returns formatted string used to generate flightpath file
     public String getMoveLog() {
-        // TODO check if should be null or blank?
         String sensorLocation = (sensor == null) ? null : sensor.getWordsLocation();
         
         final String moveLog = String.format("%s,%s,%s,%s,%s", 
@@ -41,5 +40,14 @@ public class DroneMove {
                 );
 
         return moveLog;
+    }
+    
+    private void setSensor(MustVisitLocation mustVisit) {
+        // Check if must visit location is a Sensor object
+        if (Sensor.class.isInstance(mustVisit)) {
+            this.sensor = (Sensor) mustVisit;
+        } else {
+            this.sensor = null;
+        }
     }
 }

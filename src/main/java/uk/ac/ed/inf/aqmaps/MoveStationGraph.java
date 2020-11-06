@@ -13,9 +13,6 @@ import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DefaultUndirectedGraph;
 
-import com.mapbox.geojson.Feature;
-import com.mapbox.geojson.FeatureCollection;
-import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 
 public class MoveStationGraph {
@@ -92,7 +89,7 @@ public class MoveStationGraph {
         }
     }
     
-    // Adds edges in the map to form paths between move stations
+    // Adds edges in the graph to form paths between move stations
     private void addMoveStationsGraphEdges(Point[][] moveStationGrid) {
 
         // Connect move stations in the graid
@@ -265,30 +262,5 @@ public class MoveStationGraph {
                 }
             }
         }
-    }
-    
-    //  TODO delete
-    //  needed for visualisation in report
-    public ArrayList<Feature> moveStationsGraphToGeojson() {
-        var featuresList = new ArrayList<Feature>();
-      
-        for (var moveStation : moveStationGraph.vertexSet()) {
-            var moveStationFeature = Feature.fromGeometry(moveStation);
-            featuresList.add(moveStationFeature);
-        }
-      
-        for (var edge : moveStationGraph.edgeSet()) {
-            var edgeCoords = new ArrayList<Point>(2);
-            edgeCoords.add(moveStationGraph.getEdgeSource(edge));
-            edgeCoords.add(moveStationGraph.getEdgeTarget(edge));
-            LineString edgeLineString = LineString.fromLngLats(edgeCoords);
-            Feature edgeFeature = Feature.fromGeometry(edgeLineString);
-            featuresList.add(edgeFeature);
-        }
-          
-        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
-        Utilities.writeFile("movestations.geojson", geojson);
-          
-        return featuresList;
     }
 }

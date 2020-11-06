@@ -1,25 +1,11 @@
 package uk.ac.ed.inf.aqmaps;
 
-import java.awt.geom.Area;
 import java.awt.geom.Path2D;
-import java.awt.geom.Point2D;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 
-import org.jgrapht.Graph;
 import org.jgrapht.GraphPath;
-import org.jgrapht.Graphs;
 import org.jgrapht.graph.DefaultEdge;
-import org.jgrapht.graph.DefaultUndirectedGraph;
-import org.jgrapht.graph.DefaultWeightedEdge;
-import org.jgrapht.graph.SimpleWeightedGraph;
-import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
-import org.jgrapht.alg.tour.NearestNeighborHeuristicTSP;
 
-import com.mapbox.geojson.Feature;
-import com.mapbox.geojson.FeatureCollection;
-import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 
 // Class to generate drone movements that will travel to all sensors and return to starting location
@@ -31,19 +17,17 @@ public class DronePathFinder {
     // path finding algorithm.
     private static final int MAX_COMPUTE_DRONE_MOVE_ATTEMPTS = 3;
 
-    private final MustVisitLocation droneStart;
-    private final Path2D[] noFlyZones;
-    
+    // Represents the fixed points on the map that the drone may
+    // fly to and the flight paths between them
     private final MoveStationGraph moveStationGraph;
 
+    // Represents the fixed points on the map that the drone must
+    // visit and the number of drone moves between them
     private final MustVisitGraph mustVisitGraph;
 
-    public DronePathFinder(MustVisitLocation droneStartingLocation,
+    public DronePathFinder(MustVisitLocation droneStart,
             ArrayList<Sensor> sensors, 
             Path2D[] noFlyZones) {
-
-        this.droneStart = droneStartingLocation;
-        this.noFlyZones = noFlyZones;
 
         this.moveStationGraph = new MoveStationGraph(noFlyZones, droneStart);
         this.mustVisitGraph = new MustVisitGraph(sensors, droneStart, moveStationGraph);
@@ -55,7 +39,8 @@ public class DronePathFinder {
 //    }
 
     // Main public function of the class.
-    // Computes drone 
+    // Computes drone movements required to visit all must visit locations 
+    // on the map.
     public ArrayList<DroneMove> getDroneMoves() {
 
         ArrayList<DroneMove> droneMoves = new ArrayList<DroneMove>();
@@ -107,8 +92,8 @@ public class DronePathFinder {
 
     // Create a drone move for each pair of move stations in the path between
     // source and target must visit locations
-    private void createDroneMoveInstances(MustVisitLocation sourceMustVisit, 
-            MustVisitLocation targetMustVisit,
+    private void createDroneMoveInstances(MustVisitLocation source, 
+            MustVisitLocation target,
             GraphPath<Point, DefaultEdge> shortestPath, 
             ArrayList<DroneMove> droneMoves) {
 
@@ -116,7 +101,7 @@ public class DronePathFinder {
         
         // Corner case if sensors are accessible from same move station
         if (moveStationTravelOrder.size() == 1) {
-            createMovesForSensorsCloseToEachOther(moveStationTravelOrder.get(0), targetMustVisit, droneMoves);
+            createMovesForSensorsCloseToEachOther(moveStationTravelOrder.get(0), target, droneMoves);
         }
 
         // Iterate over every pair of move stations in the path 
@@ -127,22 +112,18 @@ public class DronePathFinder {
             Point stationB = moveStationTravelOrder.get(j+1);
 
             // Determine if drone move finishes at a sensor
-            Sensor visitedSensor = checkIfSensorVisited(stationB, targetMustVisit);
+            var visitedLocation = checkIfLocationVisited(stationB, target);
             
             // Create new DroneMove
-            DroneMove tempDroneMove = new DroneMove(stationA, stationB, visitedSensor);
+            DroneMove tempDroneMove = new DroneMove(stationA, stationB, visitedLocation);
             droneMoves.add(tempDroneMove);
-        }
-        
-        // Set droneStart visited to true
-        if (!Sensor.class.isInstance(sourceMustVisit)) {
-            sourceMustVisit.setVisited(true);
         }
     }
 
     // Necessary because drone must move then take a reading.
-    // If source and target sensor have the same closest move station then create
-    private void createMovesForSensorsCloseToEachOther(Point commonMoveStation, MustVisitLocation targetMustVisit, ArrayList<DroneMove> droneMoves) {
+    private void createMovesForSensorsCloseToEachOther(Point commonMoveStation, 
+            MustVisitLocation target, 
+            ArrayList<DroneMove> droneMoves) {
         // Find a move station that is close-by to the common move station
         var neighbourMoveStation = moveStationGraph.getNeighbourMoveStation(commonMoveStation);
 
@@ -151,21 +132,22 @@ public class DronePathFinder {
         droneMoves.add(droneMoveAwayFromCommonStation);
 
         // Check if move finishes at target sensor
-        Sensor visitedSensor = checkIfSensorVisited(commonMoveStation, targetMustVisit);
+        var visitedLocation = checkIfLocationVisited(commonMoveStation, target);
 
         // Return to common moveStation
-        DroneMove droneMoveReturnToCommonStation = new DroneMove(neighbourMoveStation, commonMoveStation, visitedSensor);
+        DroneMove droneMoveReturnToCommonStation = new DroneMove(neighbourMoveStation, commonMoveStation, visitedLocation);
         droneMoves.add(droneMoveReturnToCommonStation);
     }
 
-    // TODO comment
-    private Sensor checkIfSensorVisited(Point currentMoveStation, MustVisitLocation targetMustVisit) {
-        Sensor visitedSensor = null;
-        if (currentMoveStation == targetMustVisit.getClosestMoveStation() && Sensor.class.isInstance(targetMustVisit)) {
-            targetMustVisit.setVisited(true);
-            visitedSensor = (Sensor) targetMustVisit;
+    // Check if currentMoveStation is in proximity to targetMustVisit
+    // Returns targetMustVisit if true otherwise null
+    private MustVisitLocation checkIfLocationVisited(Point currentMoveStation, MustVisitLocation target) {
+        if (currentMoveStation == target.getClosestMoveStation()) {
+            // Update visited attribute
+            target.setVisited(true);
+            return target;
         }
-        return visitedSensor;
+        return null;
     }
 
     private boolean checkDroneMovesValid(ArrayList<DroneMove> droneMoves) {
@@ -178,7 +160,7 @@ public class DronePathFinder {
         // Check all must visit locations have been visited
         for (var mustVisit : mustVisitGraph.getMustVisitLocations()) {
             if(!mustVisit.getVisited()) {
-                System.out.println(Sensor.class.isInstance(mustVisit));
+                System.out.println("WARNING: Must visit location not visited: " + mustVisit);
                 return false;
             }
         }

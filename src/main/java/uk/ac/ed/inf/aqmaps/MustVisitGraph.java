@@ -30,9 +30,9 @@ public class MustVisitGraph {
     // then returns the order that the locations should be visited in
     public List<MustVisitLocation> computeMustVisitTravelOrder() {
         // Note this is a greedy algorithm therefore may produce different result each time
-        var hamiltonianPathFinder = new NearestNeighborHeuristicTSP<MustVisitLocation, DefaultWeightedEdge>(droneStart);
-        var sensorsTravelPath = hamiltonianPathFinder.getTour(mustVisitGraph);
-        return sensorsTravelPath.getVertexList();
+        var travellingSalesmanPathFinder = new NearestNeighborHeuristicTSP<MustVisitLocation, DefaultWeightedEdge>(droneStart);
+        var mustVisitTravelPath = travellingSalesmanPathFinder.getTour(mustVisitGraph);
+        return mustVisitTravelPath.getVertexList();
     }
     
     // Returns set of locations that the drone must visit
@@ -110,47 +110,4 @@ public class MustVisitGraph {
         this.mustVisitGraph.addVertex(droneStart);
     }
     
-    // Returns ArrayList of must visit locations that are specifically Sensor 
-    // instances sensors already stored in graph therefore no need to 
-    // store them as instance variable.
-    private ArrayList<Sensor> getSensors() {
-        
-        var mustVisitLocations = getMustVisitLocations();
-        
-        // Expect number of sensors = number mustVisitLocations - 1 (given droneStart)
-        var sensors = new ArrayList<Sensor>(mustVisitLocations.size()-1);
-        
-        for ( var mustVisit : mustVisitLocations) {
-            if (Sensor.class.isInstance(mustVisit)) {
-                sensors.add((Sensor) mustVisit);
-            }
-        }
-        
-        return sensors;
-    }
-    
-    // TODO not used 
-//  public String mustVisitGraphToGeojson() {
-//  
-//  var featuresList = new ArrayList<Feature>();
-//  
-//  for (var mustVisit : mustVisitGraph.vertexSet()) {
-//      if (Sensor.class.isInstance(mustVisit)) {
-//          var sensorFeature = ((Sensor) mustVisit).getGeojsonFeature();
-//          featuresList.add(sensorFeature);
-//      }
-//  }
-//  
-////  for (var edge : sensorsGraph.edgeSet()) {
-////      var edgeCoords = new ArrayList<Point>(2);
-////      edgeCoords.add(sensorsGraph.getEdgeSource(edge).getClosestMoveStation());
-////      edgeCoords.add(sensorsGraph.getEdgeTarget(edge).getClosestMoveStation());
-////      LineString edgeLineString = LineString.fromLngLats(edgeCoords);
-////      Feature edgeFeature = Feature.fromGeometry(edgeLineString);
-////      featuresList.add(edgeFeature);
-////  }
-//  
-//  String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
-//  return geojson;
-//}
 }

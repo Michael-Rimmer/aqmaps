@@ -132,36 +132,47 @@ public class HttpClientWrapper {
     private ArrayList<Sensor> setSensorCoords(ArrayList<Sensor> sensors) throws Exception {
 
         for (var sensor: sensors) {
-
-            // Build HTTP request
-            String[] words = sensor.getWordsLocation().split("\\.");
-            String wordsUrl = baseUrl + String.format(wordsPathTemplate, words[0], words[1], words[2]);
-            var request = HttpRequest.newBuilder()
-                  .uri(URI.create(wordsUrl))
-                  .build();
-
-            try {
-                // Send HTTP request
-                String response = this.httpClient.send(request,HttpResponse.BodyHandlers.ofString()).body();
-                
-                // Parse coordinates from JSON response
-                JsonObject wordsData = new Gson().fromJson(response, JsonObject.class);
-                JsonObject coords = wordsData.getAsJsonObject("coordinates");
-                double latitude = coords.get("lat").getAsDouble();
-                double longitude = coords.get("lng").getAsDouble();
-                
-                // Set coordinates for sensor object
-                sensor.setLongLat(longitude, latitude);
-            } catch (Exception e) {
-                throw new Exception(
-                        String.format("ERROR: Failed to GET %s from Webserver on port %s \n %s", 
-                                wordsUrl, 
-                                port, 
-                                e));
-            }
+            // Send Http request
+            JsonObject responseJson = getW3WLocation(sensor);
             
+            // Parse coordinates from response
+            JsonObject coords = responseJson.getAsJsonObject("coordinates");
+            double latitude = coords.get("lat").getAsDouble();
+            double longitude = coords.get("lng").getAsDouble();
+            
+            // Set coordinates for sensor object
+            sensor.setLongLat(longitude, latitude);
         }
 
         return sensors;
+    }
+    
+    // For a sensor, get what3words location data from HTTP server and parse to JsonObject.
+    private JsonObject getW3WLocation(Sensor sensor) throws Exception {
+        
+        JsonObject responseJson;
+        
+        // Build HTTP request
+        String[] words = sensor.getWordsLocation().split("\\.");
+        String wordsUrl = baseUrl + String.format(wordsPathTemplate, words[0], words[1], words[2]);
+        var request = HttpRequest.newBuilder()
+              .uri(URI.create(wordsUrl))
+              .build();
+        
+        try {
+            // Send HTTP request
+            String response = this.httpClient.send(request,HttpResponse.BodyHandlers.ofString()).body();
+            
+            // Parse JSON response
+            responseJson = new Gson().fromJson(response, JsonObject.class);
+        } catch (Exception e) {
+            throw new Exception(
+                    String.format("ERROR: Failed to GET %s from Webserver on port %s \n %s", 
+                            wordsUrl, 
+                            port, 
+                            e));
+        }
+            
+        return responseJson;
     }
 }

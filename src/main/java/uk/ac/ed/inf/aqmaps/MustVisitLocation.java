@@ -8,14 +8,17 @@ public class MustVisitLocation {
     private Point longLat;
     private boolean visited = false;
 
-    // Empty constructor
+    // Empty constructor necessary because Sensor subclass does
+    // not have access to longLat values at time of initialisation
     public MustVisitLocation() {}
 
-    public MustVisitLocation(Point longLat) {
-        this.longLat = longLat;
+    public MustVisitLocation(String lngString, String latString) {
+        final Double lat = Double.parseDouble(latString);
+        final Double lng = Double.parseDouble(lngString);
+        this.longLat = Point.fromLngLat(lng, lat);
     }
     
-    public void setLongLat(double longitude, double latitude) {
+    public void setLongLat(Double longitude, Double latitude) {
         this.longLat = Point.fromLngLat(longitude, latitude);
     }
     
@@ -32,7 +35,7 @@ public class MustVisitLocation {
     }
     
     public void setClosestMoveStation(Point moveStation) {
-        if(!closestStationIsValid(moveStation)) {
+        if (!closestStationIsValid(moveStation)) {
             System.out.println(
                     "WARNING: Invalid closest move station for MustVisitLocation with coords: " + getLongLat());
         }
@@ -46,11 +49,12 @@ public class MustVisitLocation {
         return this.closestMoveStation;
     }
     
-    // Check closest move station is no further than from this objects coordinates
+
     private boolean closestStationIsValid(Point moveStation) {
 
         double distance = Utilities.euclideanDistance(getLongLat(), moveStation);
 
+        // Check closest move station is no further than App.CLOSE_ENOUGH_DISTANCE from this object's coordinates
         if (distance < App.CLOSE_ENOUGH_DISTANCE) {
             return true;
         }
