@@ -58,11 +58,11 @@ public final class Utilities {
     }
     
     private static void validateLatLong(String latString, String longString) throws IllegalArgumentException {
-        // Ensure lat and long within boundaries
+        // Ensure lat and long are strictly within boundaries
         double lat = Double.parseDouble(latString);
-        if (lat < App.BOUNDARY_LONG_LATS.get("minLat") || lat > App.BOUNDARY_LONG_LATS.get("maxLat")) {
+        if (lat <= App.BOUNDARY_LONG_LATS.get("minLat") || lat >= App.BOUNDARY_LONG_LATS.get("maxLat")) {
             throw new IllegalArgumentException(
-                    String.format("ERROR: Expecting latitude strictly between %s-%s. You entered: %s", 
+                    String.format("ERROR: Starting latitude must be strictly between %s-%s. You entered: %s", 
                             App.BOUNDARY_LONG_LATS.get("minLat"),
                             App.BOUNDARY_LONG_LATS.get("maxLat"),
                             lat
@@ -70,9 +70,9 @@ public final class Utilities {
         }
         
         double lng = Double.parseDouble(longString);
-        if (lng < App.BOUNDARY_LONG_LATS.get("minLong") || lng > App.BOUNDARY_LONG_LATS.get("maxLong")) {
+        if (lng <= App.BOUNDARY_LONG_LATS.get("minLong") || lng >= App.BOUNDARY_LONG_LATS.get("maxLong")) {
             throw new IllegalArgumentException(
-                    String.format("ERROR: Expecting longitude strictly between %s-%s. You entered: %s", 
+                    String.format("ERROR: Starting longitude must be strictly between %s-%s. You entered: %s", 
                             App.BOUNDARY_LONG_LATS.get("minLong"),
                             App.BOUNDARY_LONG_LATS.get("maxLong"),
                             lng
