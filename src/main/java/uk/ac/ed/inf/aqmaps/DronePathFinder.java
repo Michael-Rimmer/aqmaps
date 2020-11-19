@@ -13,16 +13,17 @@ import com.mapbox.geojson.Point;
 public class DronePathFinder {
 
     // Maximum number times the path finder will attempt to computeDroneMoves if 
-    // the computed moves are invalid. Necessary due to greedy nature of 
-    // path finding algorithm.
+    // the computed moves are invalid. Necessary because path finding algorithm
+    // is greedy.
     private static final int MAX_COMPUTE_DRONE_MOVE_ATTEMPTS = 3;
 
     // Represents the fixed points on the map that the drone may
     // fly to and the flight paths between them
     private final MoveStationGraph moveStationGraph;
 
-    // Represents the fixed points on the map that the drone must
-    // visit and the number of drone moves between them
+    // Represents the locations of drone start position
+    // and all sensors that the drone must visit and the 
+    // number of drone moves between them
     private final MustVisitGraph mustVisitGraph;
 
     public DronePathFinder(MustVisitLocation droneStart,
@@ -32,11 +33,6 @@ public class DronePathFinder {
         this.moveStationGraph = new MoveStationGraph(noFlyZones, droneStart);
         this.mustVisitGraph = new MustVisitGraph(sensors, droneStart, moveStationGraph);
     }
-
-//    // Protected for testing TODO delete?
-//    protected MoveStationGraph getMoveStationGraph() {
-//        return moveStationGraph;
-//    }
 
     // Main public function of the class.
     // Computes drone movements required to visit all must visit locations 
@@ -61,11 +57,11 @@ public class DronePathFinder {
         } else {
             System.out.println("WARNING: Failed to compute valid drone moves.");
         }
-        
+
         return droneMoves;
     }
 
-    // Return an ArrayList of drone moves representing the drones flight path
+    // Return an ArrayList of drone moves representing the drone's flight path
     private ArrayList<DroneMove> computeDroneMoves() {
         
         var droneMoves = new ArrayList<DroneMove>();
@@ -99,7 +95,7 @@ public class DronePathFinder {
 
         var moveStationTravelOrder = shortestPath.getVertexList();
         
-        // Corner case if sensors are accessible from same move station
+        // Corner case if sensors are accessible from same move station.
         if (moveStationTravelOrder.size() == 1) {
             createMovesForSensorsCloseToEachOther(moveStationTravelOrder.get(0), target, droneMoves);
         }
@@ -124,8 +120,8 @@ public class DronePathFinder {
     private void createMovesForSensorsCloseToEachOther(Point commonMoveStation, 
             MustVisitLocation target, 
             ArrayList<DroneMove> droneMoves) {
-        // Find a move station that is close-by to the common move station
-        var neighbourMoveStation = moveStationGraph.getNeighbourMoveStation(commonMoveStation);
+        // Find a move station that is a neighbour of the common move station
+        var neighbourMoveStation = moveStationGraph.getMoveStationNeighbours(commonMoveStation).get(0);
 
         // Move to neighbour move station
         DroneMove droneMoveAwayFromCommonStation = new DroneMove(commonMoveStation, neighbourMoveStation, null);
@@ -153,7 +149,8 @@ public class DronePathFinder {
     private boolean checkDroneMovesValid(ArrayList<DroneMove> droneMoves) {
 
         // Check no more than 150 drone moves
-        if (droneMoves.size()>150) {
+        if (droneMoves.size() > 150) {
+            System.out.println("WARNING: Too many drone moves: " + droneMoves.size());
             return false;
         }
 

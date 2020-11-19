@@ -3,6 +3,7 @@ package uk.ac.ed.inf.aqmaps;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import org.jgrapht.alg.tour.NearestNeighborHeuristicTSP;
 import org.jgrapht.graph.DefaultWeightedEdge;
@@ -36,12 +37,11 @@ public class MustVisitGraph {
     }
     
     // Returns set of locations that the drone must visit
-    // mustVisitLocations already stored in graph therefore no need to 
-    // store them as instance variable
     public Set<MustVisitLocation> getMustVisitLocations() {
         return mustVisitGraph.vertexSet();
     }
     
+    // Calls high level functions necessary to define the graph
     private void createMustVisitGraph(ArrayList<Sensor> sensors) {
         addMustVisitGraphVertices(sensors);
         setMustVisitLocationsClosestMoveStation();
@@ -76,7 +76,7 @@ public class MustVisitGraph {
 
         // Iterate over all must visit locations
         for (var mustVisit: getMustVisitLocations()) {
-            
+
             Point closestStation = null;
             double closestDistance = -1;
 
@@ -96,18 +96,83 @@ public class MustVisitGraph {
                     closestStation = moveStation;
                 }
             }
-            mustVisit.setClosestMoveStation(closestStation);
+            
+            if (mustVisit.closestStationIsValid(closestStation)) {
+                mustVisit.setClosestMoveStation(closestStation);
+            // If closest station is invalid then we must add a new move station ad-hoc
+            } else {
+                Point validClosestStation = createNewValidClosestMoveStation(mustVisit, closestStation, true);
+                mustVisit.setClosestMoveStation(validClosestStation);
+            }
         }
     }
     
+    // Return a Point with coordinates in straight line of length DRONE_MOVE_DISTANCE and
+    // angle degrees away from move station TODO refactor to best class
+    private Point createNeighbourMoveStation(Point moveStation, int angle) {
+        Double angleInRadians = angle * Math.PI / 180;
+        Double neighbour_lat = moveStation.latitude() + (App.DRONE_MOVE_DISTANCE * Math.cos(angleInRadians));
+        Double neighbour_long = moveStation.longitude() + (App.DRONE_MOVE_DISTANCE * Math.sin(angleInRadians));
+        return Point.fromLngLat(neighbour_long, neighbour_lat);
+    }
+    
+    
+    // Attempts to create a valid closest move station for mustVisit. Adds move station to move station graph if valid.
+    // Handles exception when closest move station is invalid, for example out of sensor range.
+    private Point createNewValidClosestMoveStation(MustVisitLocation mustVisit, Point closestStation, boolean checkNeighbours) {
+        // Create temporary move station in each possible drone direction
+        // angle from closestStation
+        for (int angle : App.DRONE_DIRECTION_ANGLES) {
+
+            var tempStation = createNeighbourMoveStation(closestStation, angle);
+            
+            // Skip if move station with same coordinates already exists
+            if (moveStationGraph.containsVertex(tempStation)) break;
+            
+            // Connect neighbour move station to graph to test if valid
+            var tempVertex = moveStationGraph.addVertex(tempStation);
+            var tempEdge = moveStationGraph.addEdge(closestStation, tempStation);
+            boolean stationIsValid = mustVisit.closestStationIsValid(tempStation);
+
+            // Check if station is valid
+            if (stationIsValid && tempVertex != null && tempEdge != null) {
+                 return tempVertex;
+             } else {
+                 // Remove tempStation from moveStationGraph since invalid
+                 moveStationGraph.removeEdge(tempEdge);
+                 moveStationGraph.removeVertex(tempVertex);
+             }
+        }
+
+        // Failed create new move station from closest station find therefore 
+        // attempt to create temporary move station in each possible drone direction
+        // angle from each neighbour of closestStation
+        if (checkNeighbours) {
+            var neighbours = moveStationGraph.getMoveStationNeighbours(closestStation);
+
+            // Run function on each of the closestStation's neighbours
+            for (Point neighbour : neighbours) {
+                Point tempStation = createNewValidClosestMoveStation(mustVisit, neighbour, false);
+                if (tempStation != closestStation) {
+                    return tempStation;
+                }
+            }
+        }
+        
+        // Failed to create valid closest move station
+        // Return closestStation despite it being invalid
+        return closestStation;
+    }
+    
+    // Add the drone start location and all sensors as vertices in the graph
     private void addMustVisitGraphVertices(ArrayList<Sensor> sensors) {
 
         // Add all sensors to the graph
         for (var sensor: sensors) {
-            this.mustVisitGraph.addVertex(sensor);
+            mustVisitGraph.addVertex(sensor);
         }
 
-        this.mustVisitGraph.addVertex(droneStart);
+        mustVisitGraph.addVertex(droneStart);
     }
     
 }

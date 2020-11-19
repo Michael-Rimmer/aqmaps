@@ -7,7 +7,8 @@ public class Sensor extends MustVisitLocation {
 
     private final String location;
     private final Float battery;
-    // reading type String because value may be "null"
+
+    // type String because value may be "null"
     private final String reading;
 
     public Sensor (String wordsLocation, Float battery, String reading) {
@@ -52,6 +53,7 @@ public class Sensor extends MustVisitLocation {
             markerColor = "#ff0000";
         }
         
+        // If battery is low, do not trust sensor reading
         if (battery < 10) markerColor = "#000000";
         
         if (!getVisited()) markerColor = "#aaaaaa";
@@ -59,6 +61,7 @@ public class Sensor extends MustVisitLocation {
         return markerColor;
     }
 
+    // Get symbol used to visualise this sensor in geojson
     private String getMarkerSymbol() {
 
         float reading = getReadingAsFloat();

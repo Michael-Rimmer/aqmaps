@@ -7,8 +7,8 @@ import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 
-// Class to represent drone that flies around campus
-// Responsible for generating flight path and readings output
+// Class to represent drone that travels around campus.
+// Responsible for generating flight path and readings output.
 public class Drone {
 
     private final ArrayList<DroneMove> droneMoves;
@@ -26,7 +26,7 @@ public class Drone {
         String flightPath = "";
         String line = "";
         
-        // Iterate each move and append its log string
+        // Iterate over each move and append its move log string
         int i = 1;
         for (DroneMove move : droneMoves) {
             line = String.format("%s,%s\n", i, move.getMoveLog());
@@ -44,10 +44,12 @@ public class Drone {
         var featuresList = new ArrayList<Feature>();
         var flightPathCoords = new ArrayList<Point>(droneMoves.size());
         
+        // Iterate over drone moves
         for (DroneMove move : droneMoves) {
+                // Add drone coordinates
                 flightPathCoords.add(move.getStartLongLat());
 
-                // Add sensor to features list
+                // Add visited sensor to features list
                 Sensor tempSensor = move.getSensor();
                 if (tempSensor != null) {
                     featuresList.add(tempSensor.getGeojsonFeature());
@@ -76,12 +78,13 @@ public class Drone {
     private static Feature generateBoundaryLineFeature() {
         var boundaryCoords = new ArrayList<Point>(5);
         
+        // Store boundary coordinates in meaningfully named variables
         final Double minLong = App.BOUNDARY_LONG_LATS.get("minLong");
         final Double minLat = App.BOUNDARY_LONG_LATS.get("minLat");
         final Double maxLong = App.BOUNDARY_LONG_LATS.get("maxLong");
         final Double maxLat = App.BOUNDARY_LONG_LATS.get("maxLat");
         
-        // Compute coordinates from min/max long/lat values
+        // Compute boundary coordinates from min/max long/lat values
         final Point bottomLeftCoord = Point.fromLngLat(minLong, minLat);
         final Point topRightCoord = Point.fromLngLat(maxLong, maxLat);
         final Point topLeftCoord = Point.fromLngLat(minLong, maxLat);
@@ -92,6 +95,7 @@ public class Drone {
         boundaryCoords.add(bottomLeftCoord);
         boundaryCoords.add(topLeftCoord);
 
+        // Create boundary feature
         final LineString boundaryLineString = LineString.fromLngLats(boundaryCoords);
         final Feature heatmapFeature = Feature.fromGeometry(boundaryLineString);
         heatmapFeature.addStringProperty("name", "heatmap_boundary");

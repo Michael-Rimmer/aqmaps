@@ -2,8 +2,8 @@ package uk.ac.ed.inf.aqmaps;
 
 import com.mapbox.geojson.Point;
 
-// Class to represent a single drone move from one point to another
-// Sensor instance stores a Sensor only if the drone move ends close to the Sensor
+// Class to represent a single drone move from one point to another.
+// Sensor instance stores a Sensor only if the drone move ends close to the Sensor.
 public class DroneMove {
     private final Point startLongLat;
     private final Point endLongLat;

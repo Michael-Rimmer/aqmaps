@@ -24,9 +24,14 @@ public final class Utilities {
         }
     }
     
-    // Computes Euclidean distance between two geojson point objects
+    // Computes Euclidean distance between two geojson Point objects
     public static Double euclideanDistance(Point a, Point b) {
         return Math.sqrt(Math.pow(a.longitude()-b.longitude(),2) + Math.pow(a.latitude()-b.latitude(),2));
+    }
+    
+    // Computes absolute difference between two doubles
+    public static Double absoluteDifference(Double a, Double b) {
+        return Math.abs(a-b);
     }
     
     // Validate command line arguments

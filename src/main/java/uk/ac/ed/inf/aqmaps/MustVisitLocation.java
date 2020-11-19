@@ -19,11 +19,11 @@ public class MustVisitLocation {
     }
     
     public void setLongLat(Double longitude, Double latitude) {
-        this.longLat = Point.fromLngLat(longitude, latitude);
+        longLat = Point.fromLngLat(longitude, latitude);
     }
     
     public Point getLongLat() {
-        return this.longLat;
+        return longLat;
     }
     
     public void setVisited(boolean visited) {
@@ -35,29 +35,33 @@ public class MustVisitLocation {
     }
     
     public void setClosestMoveStation(Point moveStation) {
+        // Validate
         if (!closestStationIsValid(moveStation)) {
-            System.out.println(
-                    "WARNING: Invalid closest move station for MustVisitLocation with coords: " + getLongLat());
+            System.out.println("--------");
+            System.out.println("WARNING: WARNING:WARNING:WARNING:WARNING:WARNING:WARNING:WARNING:WARNING:WARNING:WARNING:");
+            System.out.println("WARNING: Invalid closest move station for MustVisitLocation.");
+            System.out.println("MustVisitLocation coords: " + getLongLat());
+            System.out.println("Move station coords: " + moveStation.coordinates());
+            System.out.println("--------");
         }
 
         // Regardless, assign closest move station because do not want to fail entire 
         // app on basis of one move station
-        this.closestMoveStation = moveStation;
+        closestMoveStation = moveStation;
     }
   
     public Point getClosestMoveStation() {
-        return this.closestMoveStation;
+        return closestMoveStation;
     }
     
-
-    private boolean closestStationIsValid(Point moveStation) {
+    public boolean closestStationIsValid(Point moveStation) {
 
         double distance = Utilities.euclideanDistance(getLongLat(), moveStation);
 
         // Check closest move station is no further than App.CLOSE_ENOUGH_DISTANCE from this object's coordinates
-        if (distance < App.CLOSE_ENOUGH_DISTANCE) {
+        if (distance < App.DRONE_RECEIVER_MAX_DISTANCE) {
             return true;
-        }
+        } 
 
         return false;
     }

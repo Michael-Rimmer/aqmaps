@@ -21,6 +21,8 @@ public class HttpClientWrapper {
     private final String port;
     private final String baseUrl;
     private final HttpClient httpClient;
+
+    // String format templates
     private static final String noFlyZonesPath = "/buildings/no-fly-zones.geojson";
     private static final String mapsPathTemplate = "/maps/%s/%s/%s/air-quality-data.json";
     private static final String wordsPathTemplate = "/words/%s/%s/%s/details.json";
@@ -58,7 +60,7 @@ public class HttpClientWrapper {
     
     // Parses geojson to generate a list of Path2D objects representing no fly zones
     private static Path2D[] createNoFlyZonePaths(String geojson) {
-        // Initialise local vars
+
         double longitude;
         double latitude;
         
@@ -128,7 +130,7 @@ public class HttpClientWrapper {
     }
 
     // Takes an ArrayList of sensors as input. For each sensor, get its coordinates from HTTP server
-    // then assign to its coordinates attribute.
+    // then assigns to its coordinates attribute.
     private ArrayList<Sensor> setSensorCoords(ArrayList<Sensor> sensors) throws Exception {
 
         for (var sensor: sensors) {
