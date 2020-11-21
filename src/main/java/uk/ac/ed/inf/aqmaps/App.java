@@ -12,7 +12,7 @@ public class App
     public static final Double CLOSE_TO_STARTING_POINT_DISTANCE = 0.0003;
     
     // Max distance drone can be from sensor to download its readings
-    public static final Double DRONE_RECEIVER_MAX_DISTANCE = 0.0002;
+    public static final Double DRONE_SENSOR_RANGE = 0.0002;
     
     // Stores the angles that drone can fly in measured in degrees
     public static final int[] DRONE_DIRECTION_ANGLES = IntStream.rangeClosed(0, 35)
@@ -42,15 +42,16 @@ public class App
 //            final String httpPort = args[6];
 //            String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12"};
 //            String[] days = {"02"};
-//            String[] years = {"2020", "2021"};
-//            String[] months = {"01", "02", "03", "04", "05", "06","07","08","09","10","11","12"};
-//            String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
-            String[] years = {"2020"};
-            String[] months = {"03"};
-            String[] days = {"27"};
+            String[] years = {"2020", "2021"};
+            String[] months = {"01", "02", "03", "04", "05", "06","07","08","09","10","11","12"};
+            String[] days = {"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"};
+//            String[] years = {"2020"};
+//            String[] months = {"04"};
+//            String[] days = {"24"};
             
-            String lng = "-3.188396"; // TODO
-            String lat = String.valueOf(55.944425);
+            String lng = "-3.188396";
+            String lat = "55.944425";
+            
             String httpPort = "80";
             
             // Create drone start location

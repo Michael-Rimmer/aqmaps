@@ -1,6 +1,7 @@
 package uk.ac.ed.inf.aqmaps;
 
 import com.mapbox.geojson.Feature;
+import com.mapbox.geojson.Point;
 
 // Class representing a single Sensor.
 public class Sensor extends MustVisitLocation {
@@ -93,5 +94,22 @@ public class Sensor extends MustVisitLocation {
         return sensorFeature;
     }
     
+    @Override
+    public void setClosestMoveStation(Point moveStation) { //TODO REFACTOR WITH SENSOR OVERRIDE
+        // Validate
+        if (!closestStationIsValid(moveStation)) {
+            System.out.println("--------");
+            System.out.println("WARNING: WARNING:WARNING:WARNING:WARNING:WARNING:WARNING:WARNING:WARNING:WARNING:WARNING:");
+            System.out.println("WARNING: Invalid closest move station for MustVisitLocation.");
+            System.out.println("MustVisitLocation coords: " + getLongLat());
+            System.out.println("MustVisitLocation coords: " + getWordsLocation());
+            System.out.println("Move station coords: " + moveStation.coordinates());
+            System.out.println("--------");
+        }
+
+        // Regardless, assign closest move station because do not want to fail entire 
+        // app on basis of one move station
+        this.closestMoveStation = moveStation;
+    }
 
 }

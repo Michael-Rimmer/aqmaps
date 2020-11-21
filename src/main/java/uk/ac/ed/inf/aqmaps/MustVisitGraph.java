@@ -9,6 +9,8 @@ import org.jgrapht.alg.tour.NearestNeighborHeuristicTSP;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
 
+import com.mapbox.geojson.Feature;
+import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.Point;
 
 public class MustVisitGraph {
@@ -116,18 +118,17 @@ public class MustVisitGraph {
         return Point.fromLngLat(neighbour_long, neighbour_lat);
     }
     
-    
     // Attempts to create a valid closest move station for mustVisit. Adds move station to move station graph if valid.
     // Handles exception when closest move station is invalid, for example out of sensor range.
     private Point createNewValidClosestMoveStation(MustVisitLocation mustVisit, Point closestStation, boolean checkNeighbours) {
+
         // Create temporary move station in each possible drone direction
         // angle from closestStation
         for (int angle : App.DRONE_DIRECTION_ANGLES) {
-
             var tempStation = createNeighbourMoveStation(closestStation, angle);
             
             // Skip if move station with same coordinates already exists
-            if (moveStationGraph.containsVertex(tempStation)) break;
+            if (moveStationGraph.containsVertex(tempStation)) continue;
             
             // Connect neighbour move station to graph to test if valid
             var tempVertex = moveStationGraph.addVertex(tempStation);
@@ -143,24 +144,32 @@ public class MustVisitGraph {
                  moveStationGraph.removeVertex(tempVertex);
              }
         }
-
+        
         // Failed create new move station from closest station find therefore 
         // attempt to create temporary move station in each possible drone direction
         // angle from each neighbour of closestStation
-        if (checkNeighbours) {
-            var neighbours = moveStationGraph.getMoveStationNeighbours(closestStation);
+        if (checkNeighbours) return createNeighbourMoveStations(mustVisit, closestStation);
 
-            // Run function on each of the closestStation's neighbours
-            for (Point neighbour : neighbours) {
-                Point tempStation = createNewValidClosestMoveStation(mustVisit, neighbour, false);
-                if (tempStation != closestStation) {
-                    return tempStation;
-                }
-            }
-        }
-        
         // Failed to create valid closest move station
         // Return closestStation despite it being invalid
+        return closestStation;
+    }
+    
+    private Point createNeighbourMoveStations(MustVisitLocation mustVisit, Point closestStation) {
+
+        var neighbours = moveStationGraph.getMoveStationNeighbours(closestStation);
+//        System.out.println("----- CHECKING " + neighbours.size() + " NEIGHBOURS ----------");
+        // Run function on each of the closestStation's neighbours
+        int q = 1;
+        for (Point neighbour : neighbours) {
+//            System.out.println("----- NEIGHBOUR " + q + " ----------");
+            Point tempStation = createNewValidClosestMoveStation(mustVisit, neighbour, false);
+            if (tempStation != neighbour) {
+                return tempStation;
+            }
+            q++;
+        }
+        
         return closestStation;
     }
     
@@ -175,4 +184,20 @@ public class MustVisitGraph {
         mustVisitGraph.addVertex(droneStart);
     }
     
+//      public ArrayList<Feature> mustVisitGraphToGeojson(String filename) { // TODO REFACTOR
+//      
+//      var featuresList = new ArrayList<Feature>();
+//      
+//      for (var mustVisit : mustVisitGraph.vertexSet()) {
+//          if (Sensor.class.isInstance(mustVisit)) {
+//              var sensorFeature = ((Sensor) mustVisit).getGeojsonFeature();
+//              featuresList.add(sensorFeature);
+//          }
+//      }
+//      
+//      String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
+//      Utilities.writeFile(filename+".geojson", geojson);
+//      
+//      return featuresList;
+//    }
 }

@@ -23,7 +23,8 @@ import com.mapbox.geojson.Point;
 // travel to and the drone moves between them.
 public class MoveStationGraph {
 
-    private int offsetIndex;
+    private int offsetIndex; //TODO refactor
+    
     private final Path2D[] noFlyZones;
     
     private final Area[] noFlyZoneAreas;
@@ -79,7 +80,6 @@ public class MoveStationGraph {
         Point[][] moveStationGrid = createMoveStationsGrid();
         addMoveStationGraphVertices(moveStationGrid);
         addMoveStationGraphEdges(moveStationGrid);
-        moveStationsGraphToGeojson("allmovestations");
         // Remove any move stations that have no edges
         removeIsolatedMoveStations();
         
@@ -141,8 +141,8 @@ public class MoveStationGraph {
             }
         }
 
-        // Corner case since droneStart is not in moveStationGrid TODO
-        connectDroneStartToMoveStations(moveStationGrid);
+        // Corner case since droneStart is not in moveStationGrid TODO delete
+//        connectDroneStartToMoveStations(moveStationGrid);
 //        removeInvalidMoveStationEdges();
     }
     
@@ -217,7 +217,7 @@ public class MoveStationGraph {
         return moveStation;
     }
 
-    // Return true if move station within no fly zone
+    // Return true if move station outside campus boundary
     private boolean checkMoveStationOutsideCampusBoundary(Point moveStation) {
         
         if (moveStation.latitude() >= App.BOUNDARY_LONG_LATS.get("maxLat") ||
@@ -291,9 +291,8 @@ public class MoveStationGraph {
             }
         }
         
-        System.out.println("MSG CONTAINS DRONE START: " + moveStationGraph.containsVertex(droneStart.getLongLat()));
         // Add drone starting point as vertex TODO
-        moveStationGraph.addVertex(droneStart.getLongLat());
+//        moveStationGraph.addVertex(droneStart.getLongLat());
     }
 
     // Returns 2D array of Points storing the coordinates of the move stations
@@ -325,7 +324,7 @@ public class MoveStationGraph {
         var moveStationGrid = new Point[moveStationRows][moveStationColumns];
         
         this.offsetIndex = computeOffsetIndex(droneStart.getLongLat().latitude(),distanceBetweenRows);
-        System.out.println(offsetIndex);
+
         // Calculate the coordinates of each move station
         for (int i = 0 ; i < moveStationRows ; i++) {
             
@@ -392,26 +391,56 @@ public class MoveStationGraph {
     
     //  TODO delete
     //  needed for visualisation in report
-    public ArrayList<Feature> moveStationsGraphToGeojson(String filename) {
-        var featuresList = new ArrayList<Feature>();
-      
-        for (var moveStation : moveStationGraph.vertexSet()) {
-            var moveStationFeature = Feature.fromGeometry(moveStation);
-            featuresList.add(moveStationFeature);
-        }
-      
-        for (var edge : moveStationGraph.edgeSet()) {
-            var edgeCoords = new ArrayList<Point>(2);
-            edgeCoords.add(moveStationGraph.getEdgeSource(edge));
-            edgeCoords.add(moveStationGraph.getEdgeTarget(edge));
-            LineString edgeLineString = LineString.fromLngLats(edgeCoords);
-            Feature edgeFeature = Feature.fromGeometry(edgeLineString);
-            featuresList.add(edgeFeature);
-        }
-          
-        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
-        Utilities.writeFile(filename+".geojson", geojson);
-          
-        return featuresList;
-    }
+//    public ArrayList<Feature> moveStationsGraphToGeojson(String filename) {
+//        var featuresList = new ArrayList<Feature>();
+//      
+//        for (var moveStation : moveStationGraph.vertexSet()) {
+//            var moveStationFeature = Feature.fromGeometry(moveStation);
+//            featuresList.add(moveStationFeature);
+//        }
+//      
+//        for (var edge : moveStationGraph.edgeSet()) {
+//            var edgeCoords = new ArrayList<Point>(2);
+//            edgeCoords.add(moveStationGraph.getEdgeSource(edge));
+//            edgeCoords.add(moveStationGraph.getEdgeTarget(edge));
+//            LineString edgeLineString = LineString.fromLngLats(edgeCoords);
+//            Feature edgeFeature = Feature.fromGeometry(edgeLineString);
+//            featuresList.add(edgeFeature);
+//        }
+//          
+//        featuresList.add(generateBoundaryLineFeature());
+//        
+//        String geojson = FeatureCollection.fromFeatures(featuresList).toJson();
+//        Utilities.writeFile(filename+".geojson", geojson);
+//          
+//        return featuresList;
+//    }
+//    
+//    private static Feature generateBoundaryLineFeature() { // TODO GET RID
+//        var boundaryCoords = new ArrayList<Point>(5);
+//        
+//        // Store boundary coordinates in meaningfully named variables
+//        final Double minLong = App.BOUNDARY_LONG_LATS.get("minLong");
+//        final Double minLat = App.BOUNDARY_LONG_LATS.get("minLat");
+//        final Double maxLong = App.BOUNDARY_LONG_LATS.get("maxLong");
+//        final Double maxLat = App.BOUNDARY_LONG_LATS.get("maxLat");
+//        
+//        // Compute boundary coordinates from min/max long/lat values
+//        final Point bottomLeftCoord = Point.fromLngLat(minLong, minLat);
+//        final Point topRightCoord = Point.fromLngLat(maxLong, maxLat);
+//        final Point topLeftCoord = Point.fromLngLat(minLong, maxLat);
+//        final Point bottomRightCoord = Point.fromLngLat(maxLong, minLat);
+//        boundaryCoords.add(topLeftCoord);
+//        boundaryCoords.add(topRightCoord);
+//        boundaryCoords.add(bottomRightCoord);
+//        boundaryCoords.add(bottomLeftCoord);
+//        boundaryCoords.add(topLeftCoord);
+//
+//        // Create boundary feature
+//        final LineString boundaryLineString = LineString.fromLngLats(boundaryCoords);
+//        final Feature heatmapFeature = Feature.fromGeometry(boundaryLineString);
+//        heatmapFeature.addStringProperty("name", "heatmap_boundary");
+//
+//        return heatmapFeature;
+//    }
 }

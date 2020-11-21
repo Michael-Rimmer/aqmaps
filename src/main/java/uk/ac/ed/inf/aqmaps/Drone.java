@@ -17,8 +17,8 @@ public class Drone {
     
     public Drone(ArrayList<DroneMove> droneMoves, String day, String month, String year) {
         this.droneMoves = droneMoves;
-        this.flightPathFileName = String.format("flightpath-%s-%s-%s.txt", day, month, year);
-        this.readingsFileName = String.format("readings-%s-%s-%s.geojson", day, month, year);
+        this.flightPathFileName = String.format("flightpaths/flightpath-%s-%s-%s.txt", day, month, year); //TODO remove dirs
+        this.readingsFileName = String.format("readings/readings-%s-%s-%s.geojson", day, month, year);
     }
     
     // Generate .txt file describing each drone move

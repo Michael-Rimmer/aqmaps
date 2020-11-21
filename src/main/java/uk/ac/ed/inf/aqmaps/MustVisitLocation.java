@@ -4,7 +4,7 @@ import com.mapbox.geojson.Point;
 
 // Class to represent a location that the drone must visit during its flight path
 public class MustVisitLocation {
-    private Point closestMoveStation;
+    protected Point closestMoveStation; // TODO refactor with sensor inheritance
     private Point longLat;
     private boolean visited = false;
 
@@ -34,7 +34,7 @@ public class MustVisitLocation {
         return visited;
     }
     
-    public void setClosestMoveStation(Point moveStation) {
+    public void setClosestMoveStation(Point moveStation) { //TODO REFACTOR WITH SENSOR OVERRIDE
         // Validate
         if (!closestStationIsValid(moveStation)) {
             System.out.println("--------");
@@ -59,7 +59,7 @@ public class MustVisitLocation {
         double distance = Utilities.euclideanDistance(getLongLat(), moveStation);
 
         // Check closest move station is no further than App.CLOSE_ENOUGH_DISTANCE from this object's coordinates
-        if (distance < App.DRONE_RECEIVER_MAX_DISTANCE) {
+        if (distance < App.DRONE_SENSOR_RANGE) {
             return true;
         } 
 

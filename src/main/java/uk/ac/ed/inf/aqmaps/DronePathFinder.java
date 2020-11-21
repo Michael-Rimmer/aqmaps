@@ -38,16 +38,24 @@ public class DronePathFinder {
     // Computes drone movements required to visit all must visit locations 
     // on the map.
     public ArrayList<DroneMove> getDroneMoves() {
-
-        ArrayList<DroneMove> droneMoves = new ArrayList<DroneMove>();
+        
+        var tempDroneMoves = new ArrayList<DroneMove>();
+        var droneMoves = new ArrayList<DroneMove>();
         boolean droneMovesValid = false;
 
-        // If drone moves are invalid, retry MAX_COMPUTE_DRONE_MOVE_ATTEMPTS times.
-        // Often works on first attempt but necessary because path finding algorithm is greedy.
+        // Recomputes drone moves MAX_COMPUTE_DRONE_MOVE_ATTEMPTS times to obtain
+        // shorter flight path
+        droneMoves = computeDroneMoves();
         int i = 0;
-        while (i < MAX_COMPUTE_DRONE_MOVE_ATTEMPTS && !droneMovesValid) {
-            droneMoves = computeDroneMoves();
+        while (i < MAX_COMPUTE_DRONE_MOVE_ATTEMPTS) {
+            tempDroneMoves = computeDroneMoves();
             droneMovesValid = checkDroneMovesValid(droneMoves);
+            
+            // Update drone moves if fewer moves than before and valid
+            if (droneMovesValid && 
+                    tempDroneMoves.size() < droneMoves.size()) {
+                droneMoves = tempDroneMoves;
+            }
             i++;
         }
 
